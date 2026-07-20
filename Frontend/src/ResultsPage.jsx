@@ -87,9 +87,18 @@ function applyFilters(results, { search, status, center, finalGrade, minTotal, m
 }
 
 export default function ResultsPage() {
+  const [exams, setExams] = useState([])
   const [results, setResults] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [loadingExams, setLoadingExams] = useState(true)
   const [error,   setError]   = useState('')
+  const [selectionError, setSelectionError] = useState('')
+  const [hasSearched, setHasSearched] = useState(false)
+
+  const [selectedExamName, setSelectedExamName] = useState('')
+  const [selectedExamYear, setSelectedExamYear] = useState('')
+  const [appliedExamName, setAppliedExamName] = useState('')
+  const [appliedExamYear, setAppliedExamYear] = useState('')
 
   // filter state
   const [search,     setSearch]     = useState('')
@@ -100,24 +109,91 @@ export default function ResultsPage() {
   const [maxTotal,   setMaxTotal]   = useState('')
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/exam-results`)
+    setLoadingExams(true)
+    fetch(`${API_BASE_URL}/api/exams`)
       .then((res) => res.json())
       .then((payload) => {
-        if (payload.results) setResults(payload.results)
-        else setError(payload.message || 'Failed to load results.')
+        if (payload.exams) setExams(payload.exams)
+        else setError(payload.message || 'Failed to load exam list.')
+      })
+      .catch(() => setError('Could not reach the server.'))
+      .finally(() => setLoadingExams(false))
+  }, [])
+
+  const examNameOptions = useMemo(() => {
+    return [...new Set(exams.map((exam) => (exam.name || '').trim()).filter(Boolean))].sort()
+  }, [exams])
+
+  const examYearOptions = useMemo(() => {
+    const scoped = selectedExamName
+      ? exams.filter((exam) => (exam.name || '').trim() === selectedExamName)
+      : exams
+
+    return [...new Set(scoped.map((exam) => (exam.academicYear || '').trim()).filter(Boolean))].sort()
+  }, [exams, selectedExamName])
+
+  const searchedResults = useMemo(() => {
+    if (!appliedExamName || !appliedExamYear) {
+      return []
+    }
+
+    return results.filter(
+      (r) => (r.exam?.name || '').trim() === appliedExamName &&
+             (r.exam?.academicYear || '').trim() === appliedExamYear,
+    )
+  }, [results, appliedExamName, appliedExamYear])
+
+  // derive unique filter options from data
+  const centerOptions = useMemo(
+    () => [...new Set(searchedResults.map((r) => r.center || '').filter(Boolean))].sort(),
+    [searchedResults],
+  )
+  const finalGradeOptions = useMemo(
+    () => [...new Set(searchedResults.map((r) => (r.finalGrade || '').trim()).filter(Boolean))].sort(),
+    [searchedResults],
+  )
+
+  const filtered = useMemo(
+    () => applyFilters(searchedResults, { search, status, center, finalGrade, minTotal, maxTotal }),
+    [searchedResults, search, status, center, finalGrade, minTotal, maxTotal],
+  )
+
+  function handleExamSearch() {
+    if (!selectedExamName || !selectedExamYear) {
+      setSelectionError('Select exam name and exam year, then click Search.')
+      return
+    }
+
+    const selectedExam = exams.find(
+      (exam) => (exam.name || '').trim() === selectedExamName && (exam.academicYear || '').trim() === selectedExamYear,
+    )
+
+    if (!selectedExam?.id) {
+      setSelectionError('Selected exam could not be found. Please choose again.')
+      return
+    }
+
+    setSelectionError('')
+    setError('')
+    setLoading(true)
+    setHasSearched(false)
+    setAppliedExamName(selectedExamName)
+    setAppliedExamYear(selectedExamYear)
+    resetFilters()
+
+    fetch(`${API_BASE_URL}/api/exam-results?examId=${encodeURIComponent(selectedExam.id)}`)
+      .then((res) => res.json())
+      .then((payload) => {
+        if (payload.results) {
+          setResults(payload.results)
+          setHasSearched(true)
+        } else {
+          setError(payload.message || 'Failed to load results for selected exam.')
+        }
       })
       .catch(() => setError('Could not reach the server.'))
       .finally(() => setLoading(false))
-  }, [])
-
-  // derive unique filter options from data
-  const centerOptions    = useMemo(() => [...new Set(results.map((r) => r.center || '').filter(Boolean))].sort(), [results])
-  const finalGradeOptions = useMemo(() => [...new Set(results.map((r) => (r.finalGrade || '').trim()).filter(Boolean))].sort(), [results])
-
-  const filtered = useMemo(
-    () => applyFilters(results, { search, status, center, finalGrade, minTotal, maxTotal }),
-    [results, search, status, center, finalGrade, minTotal, maxTotal],
-  )
+  }
 
   function resetFilters() {
     setSearch('')
@@ -136,7 +212,9 @@ export default function ResultsPage() {
         <p className="eyebrow">Exam Results Portal</p>
         <h1>Result Sheet</h1>
         <p className="hero-copy">
-          Certificate Course of Co-operative Development Advanced Level · Academic Year 2023/2024
+          {appliedExamName && appliedExamYear
+            ? `${appliedExamName} · Academic Year ${appliedExamYear}`
+            : 'Select exam name and year, then search to view results.'}
         </p>
         <p className="grade-legend">
           (75 &ge; D – Distinction)&ensp;(55–74 = C – Credit)&ensp;(35–54 = S – Simple Pass)&ensp;(34&lt; F = Failure)&ensp;(AB = Absent)
@@ -144,6 +222,49 @@ export default function ResultsPage() {
       </section>
 
       {/* ── Filter bar ── */}
+      <section className="panel-card exam-selector-bar">
+        <div className="filter-row filter-row-controls">
+          <label className="filter-label">
+            Exam Name
+            <select
+              className="filter-select"
+              value={selectedExamName}
+              onChange={(e) => {
+                setSelectedExamName(e.target.value)
+                setSelectedExamYear('')
+                setSelectionError('')
+              }}
+              disabled={loadingExams}
+            >
+              <option value="">Select exam name</option>
+              {examNameOptions.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
+
+          <label className="filter-label">
+            Exam Year
+            <select
+              className="filter-select"
+              value={selectedExamYear}
+              onChange={(e) => {
+                setSelectedExamYear(e.target.value)
+                setSelectionError('')
+              }}
+              disabled={loadingExams || !selectedExamName}
+            >
+              <option value="">Select exam year</option>
+              {examYearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
+            </select>
+          </label>
+
+          <button className="submit-button exam-search-button" type="button" onClick={handleExamSearch}>
+            Search
+          </button>
+        </div>
+
+        {selectionError ? <p className="feedback error exam-selection-error">{selectionError}</p> : null}
+      </section>
+
       <section className="panel-card filter-bar">
         {/* Row 1: search + status chips */}
         <div className="filter-row">
@@ -220,7 +341,7 @@ export default function ResultsPage() {
           </label>
 
           <div className="filter-meta">
-            <span className="filter-count">{filtered.length} / {results.length} candidates</span>
+            <span className="filter-count">{filtered.length} / {searchedResults.length} candidates</span>
             {isDirty && (
               <button className="filter-reset" type="button" onClick={resetFilters}>Clear filters</button>
             )}
@@ -233,14 +354,28 @@ export default function ResultsPage() {
         {loading && <p className="feedback">Loading results…</p>}
         {error   && <p className="feedback error">{error}</p>}
 
-        {!loading && !error && results.length === 0 && (
+        {!loading && !error && loadingExams && (
           <div className="empty-state">
-            <p>No results found.</p>
-            <span>Upload an exam workbook first.</span>
+            <p>Loading exam list...</p>
+            <span>Please wait.</span>
           </div>
         )}
 
-        {!loading && results.length > 0 && filtered.length === 0 && (
+        {!loading && !error && !hasSearched && !loadingExams && (
+          <div className="empty-state">
+            <p>Select exam name and exam year.</p>
+            <span>Click Search to view the result table.</span>
+          </div>
+        )}
+
+        {!loading && !error && hasSearched && searchedResults.length === 0 && (
+          <div className="empty-state">
+            <p>No records found for the selected exam.</p>
+            <span>Try another exam name or year.</span>
+          </div>
+        )}
+
+        {!loading && searchedResults.length > 0 && filtered.length === 0 && (
           <div className="empty-state">
             <p>No candidates match the current filters.</p>
             <span><button className="filter-reset" type="button" onClick={resetFilters}>Clear filters</button></span>

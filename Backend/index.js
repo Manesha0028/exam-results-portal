@@ -3,6 +3,9 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
 
+const Exam = require("./models/Exam");
+const ExamResult = require("./models/ExamResult");
+const examRoutes = require("./routes/examRoutes");
 const examResultRoutes = require("./routes/examResultRoutes");
 
 dotenv.config({ override: true });
@@ -24,9 +27,29 @@ function logMongoConnectionError(error) {
   }
 }
 
+async function syncModelIndexes() {
+  try {
+    await ExamResult.collection.dropIndex("indexNo_1");
+    console.log("Dropped legacy index: examresults.indexNo_1");
+  } catch (error) {
+    const isMissingIndexError =
+      error?.codeName === "IndexNotFound" ||
+      error?.code === 27 ||
+      (typeof error?.message === "string" && error.message.includes("index not found"));
+
+    if (!isMissingIndexError) {
+      throw error;
+    }
+  }
+
+  await Promise.all([Exam.syncIndexes(), ExamResult.syncIndexes()]);
+  console.log("MongoDB indexes synced");
+}
+
 app.use(cors());
 app.use(express.json());
 
+app.use("/api/exams", examRoutes);
 app.use("/api/exam-results", examResultRoutes);
 
 app.get("/health", (_req, res) => {
@@ -59,8 +82,9 @@ const mongoStartupPromise = MONGO_URI && MONGO_URI.trim()
       .connect(MONGO_URI, {
         serverSelectionTimeoutMS: 10000,
       })
-      .then(() => {
+      .then(async () => {
         console.log("MongoDB connected");
+        await syncModelIndexes();
       })
       .catch((error) => {
         logMongoConnectionError(error);

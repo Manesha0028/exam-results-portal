@@ -28,6 +28,12 @@ const subjectSchema = new mongoose.Schema(
 
 const examResultSchema = new mongoose.Schema(
   {
+    exam: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Exam",
+      required: true,
+      index: true,
+    },
     candidateName: {
       type: String,
       required: true,
@@ -42,7 +48,6 @@ const examResultSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      unique: true,
     },
     center: {
       type: String,
@@ -81,5 +86,7 @@ const examResultSchema = new mongoose.Schema(
     timestamps: true,
   },
 );
+
+examResultSchema.index({ exam: 1, indexNo: 1 }, { unique: true });
 
 module.exports = mongoose.model("ExamResult", examResultSchema);
