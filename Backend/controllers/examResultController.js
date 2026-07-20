@@ -49,6 +49,20 @@ async function uploadExamResults(req, res, next) {
   }
 }
 
+async function getExamResults(_req, res, next) {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ message: "Database connection is not available." });
+    }
+
+    const results = await ExamResult.find({}).sort({ indexNo: 1 }).lean();
+    return res.status(200).json({ results });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   uploadExamResults,
+  getExamResults,
 };

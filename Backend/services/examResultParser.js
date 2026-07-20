@@ -1,16 +1,30 @@
 const XLSX = require("xlsx");
 
-const PRIMARY_HEADER_ROW_INDEX = 5;
-const SUBJECT_CODE_ROW_INDEX = 6;
 const DATA_START_ROW_INDEX = 7;
-const SUBJECT_START_COLUMN_INDEX = 5;
+const NO_COLUMN_INDEX = 1;
+const CANDIDATE_NAME_COLUMN_INDEX = 2;
+const NIC_NUMBER_COLUMN_INDEX = 3;
+const INDEX_NO_COLUMN_INDEX = 4;
+const CENTER_COLUMN_INDEX = 5;
+const SUBJECT_START_COLUMN_INDEX = 6;
+const SUBJECT_COLUMN_PAIR_COUNT = 10;
+const TOTAL_COLUMN_INDEX = 26;
+const AVERAGE_COLUMN_INDEX = 27;
+const FINAL_GRADE_COLUMN_INDEX = 28;
+const REPEAT_SUBJECT_CODE_COLUMN_INDEX = 29;
 
-const REQUIRED_TRAILING_LABELS = {
-  total: "total",
-  average: "average",
-  finalGrade: "final grade",
-  repeatSubjectCode: "repeat subject code",
-};
+const FIXED_SUBJECTS = [
+  { name: "Cooperative", code: "CDAL01" },
+  { name: "Marketing Management", code: "CDAL02" },
+  { name: "Information Technology", code: "CDAL03" },
+  { name: "Secraterial Practices", code: "CDAL04" },
+  { name: "Public Relations", code: "CDAL05" },
+  { name: "Accountancy", code: "CDAL06" },
+  { name: "Financial Management", code: "CDAL07" },
+  { name: "Law & Practices", code: "CDAL08" },
+  { name: "Human resource Management", code: "CDAL09" },
+  { name: "Field Assignment", code: "CDAL10" },
+];
 
 class ExamParseError extends Error {
   constructor(message) {
@@ -27,10 +41,6 @@ function normalizeCell(value) {
   return String(value).replace(/\s+/g, " ").trim();
 }
 
-function normalizeKey(value) {
-  return normalizeCell(value).toLowerCase();
-}
-
 function parseNumericCell(value) {
   const normalized = normalizeCell(value).replace(/,/g, "");
 
@@ -43,103 +53,38 @@ function parseNumericCell(value) {
 }
 
 function isCandidateRow(row, trailingIndexes) {
-  const candidateIdentity = row.slice(0, SUBJECT_START_COLUMN_INDEX).some((cell) => normalizeCell(cell));
-  const hasTrailingValue = [
-    trailingIndexes.totalIndex,
-    trailingIndexes.averageIndex,
-    trailingIndexes.finalGradeIndex,
-    trailingIndexes.repeatSubjectCodeIndex,
-  ].some((index) => normalizeCell(row[index]));
-
-  return candidateIdentity || hasTrailingValue;
+  return normalizeCell(row[INDEX_NO_COLUMN_INDEX]);
 }
 
-function getTrailingIndexes(primaryHeaderRow) {
-  const normalizedHeaders = primaryHeaderRow.map(normalizeKey);
+function mapCandidateRow(row) {
+  const subjects = FIXED_SUBJECTS.map((subject, subjectIndex) => {
+    const markColumnIndex = SUBJECT_START_COLUMN_INDEX + subjectIndex * 2;
+    const gradeColumnIndex = markColumnIndex + 1;
 
-  const totalIndex = normalizedHeaders.indexOf(REQUIRED_TRAILING_LABELS.total);
-  const averageIndex = normalizedHeaders.indexOf(REQUIRED_TRAILING_LABELS.average);
-  const finalGradeIndex = normalizedHeaders.indexOf(REQUIRED_TRAILING_LABELS.finalGrade);
-  const repeatSubjectCodeIndex = normalizedHeaders.indexOf(REQUIRED_TRAILING_LABELS.repeatSubjectCode);
-
-  if ([totalIndex, averageIndex, finalGradeIndex, repeatSubjectCodeIndex].some((index) => index === -1)) {
-    throw new ExamParseError(
-      "The worksheet is missing one or more required trailing columns: Total, Average, Final Grade, Repeat Subject Code.",
-    );
-  }
-
-  if (!(totalIndex < averageIndex && averageIndex < finalGradeIndex && finalGradeIndex < repeatSubjectCodeIndex)) {
-    throw new ExamParseError("The trailing summary columns are not in the expected order.");
-  }
-
-  return {
-    totalIndex,
-    averageIndex,
-    finalGradeIndex,
-    repeatSubjectCodeIndex,
-  };
-}
-
-function buildSubjectMap(primaryHeaderRow, subjectCodeRow, totalIndex) {
-  const subjects = [];
-
-  for (let columnIndex = SUBJECT_START_COLUMN_INDEX; columnIndex < totalIndex; columnIndex += 2) {
-    const name = normalizeCell(primaryHeaderRow[columnIndex]);
-    const code = normalizeCell(subjectCodeRow[columnIndex]);
-
-    if (!name && !code) {
-      continue;
-    }
-
-    if (columnIndex + 1 >= totalIndex) {
-      throw new ExamParseError(`Subject \"${name || code}\" does not have a grade column pair.`);
-    }
-
-    if (!name || !code) {
-      throw new ExamParseError(
-        `Invalid subject header structure near Excel column ${columnIndex + 1}. Each subject needs a merged name and a code in the first column of its pair.`,
-      );
-    }
-
-    subjects.push({
-      name,
-      code,
-      markColumnIndex: columnIndex,
-      gradeColumnIndex: columnIndex + 1,
-    });
-  }
-
-  if (subjects.length === 0) {
-    throw new ExamParseError("No subject columns were found between the candidate metadata and trailing summary columns.");
-  }
-
-  return subjects;
-}
-
-function mapCandidateRow(row, subjects, trailingIndexes) {
-  return {
-    candidateName: normalizeCell(row[1]),
-    nicNumber: normalizeCell(row[2]),
-    indexNo: normalizeCell(row[3]),
-    center: normalizeCell(row[4]),
-    subjects: subjects.map((subject) => ({
+    return {
       code: subject.code,
       name: subject.name,
-      mark: normalizeCell(row[subject.markColumnIndex]),
-      grade: normalizeCell(row[subject.gradeColumnIndex]),
-    })),
-    total: parseNumericCell(row[trailingIndexes.totalIndex]),
-    average: normalizeCell(row[trailingIndexes.averageIndex]),
-    finalGrade: normalizeCell(row[trailingIndexes.finalGradeIndex]),
-    repeatSubjectCode: normalizeCell(row[trailingIndexes.repeatSubjectCodeIndex]),
+      mark: normalizeCell(row[markColumnIndex]),
+      grade: normalizeCell(row[gradeColumnIndex]),
+    };
+  });
+
+  return {
+    candidateName: normalizeCell(row[CANDIDATE_NAME_COLUMN_INDEX]),
+    nicNumber: normalizeCell(row[NIC_NUMBER_COLUMN_INDEX]),
+    indexNo: normalizeCell(row[INDEX_NO_COLUMN_INDEX]),
+    center: normalizeCell(row[CENTER_COLUMN_INDEX]),
+    subjects,
+    total: parseNumericCell(row[TOTAL_COLUMN_INDEX]),
+    average: normalizeCell(row[AVERAGE_COLUMN_INDEX]),
+    finalGrade: normalizeCell(row[FINAL_GRADE_COLUMN_INDEX]),
+    repeatSubjectCode: normalizeCell(row[REPEAT_SUBJECT_CODE_COLUMN_INDEX]),
   };
 }
 
 function validateCandidate(candidate, rowIndex) {
-  if (!candidate.candidateName || !candidate.nicNumber || !candidate.indexNo || !candidate.center) {
-    throw new ExamParseError(
-      `Candidate data is incomplete on worksheet row ${rowIndex + 1}. Expected Candidate's Name, NIC Number, Index No., and Center.`,
-    );
+  if (!candidate.indexNo) {
+    throw new ExamParseError(`Candidate data is incomplete on worksheet row ${rowIndex + 1}. Expected Index No.`);
   }
 }
 
@@ -163,17 +108,12 @@ function parseExamResultsWorkbook(buffer) {
     throw new ExamParseError("The uploaded worksheet is too short to contain the required header and candidate rows.");
   }
 
-  const primaryHeaderRow = rows[PRIMARY_HEADER_ROW_INDEX] || [];
-  const subjectCodeRow = rows[SUBJECT_CODE_ROW_INDEX] || [];
-  const trailingIndexes = getTrailingIndexes(primaryHeaderRow);
-  const subjects = buildSubjectMap(primaryHeaderRow, subjectCodeRow, trailingIndexes.totalIndex);
-
   return rows
     .slice(DATA_START_ROW_INDEX)
-    .filter((row) => isCandidateRow(row, trailingIndexes))
+    .filter((row) => isCandidateRow(row))
     .map((row, rowOffset) => {
       const worksheetRowIndex = DATA_START_ROW_INDEX + rowOffset;
-      const candidate = mapCandidateRow(row, subjects, trailingIndexes);
+      const candidate = mapCandidateRow(row);
       validateCandidate(candidate, worksheetRowIndex);
       return candidate;
     });
