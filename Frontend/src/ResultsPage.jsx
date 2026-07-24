@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '')
+const QUARTERLY_ACCOUNTING_EXAM_NAME = 'Certificate Course of the Quarterly Accounting principals'
 
 const SUBJECTS = [
   { name: 'Cooperative',               code: 'CDAL01' },
@@ -34,6 +35,23 @@ function gradeClass(grade) {
   if (g === 'F')  return 'grade-f'
   if (g === 'AB') return 'grade-ab'
   return ''
+}
+
+function normalizeExamName(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+function getQuarterlyPaperMarks(candidate) {
+  const subjects = candidate.subjects || []
+  const firstPaper = subjects.find((subject) => subject.code === 'QAP01')
+    || subjects.find((subject) => (subject.name || '').toLowerCase().includes('1st'))
+  const secondPaper = subjects.find((subject) => subject.code === 'QAP02')
+    || subjects.find((subject) => (subject.name || '').toLowerCase().includes('2nd'))
+
+  return {
+    first: firstPaper?.mark || '',
+    second: secondPaper?.mark || '',
+  }
 }
 
 function classifyCandidate(candidate) {
@@ -205,6 +223,8 @@ export default function ResultsPage() {
   }
 
   const isDirty = search || status !== 'all' || center || finalGrade || minTotal !== '' || maxTotal !== ''
+  const isQuarterlyAccountingExam =
+    normalizeExamName(appliedExamName) === normalizeExamName(QUARTERLY_ACCOUNTING_EXAM_NAME)
 
   return (
     <main className="app-shell">
@@ -382,7 +402,45 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {!loading && filtered.length > 0 && (
+        {!loading && filtered.length > 0 && isQuarterlyAccountingExam && (
+          <div className="results-scroll">
+            <table className="results-table">
+              <thead>
+                <tr className="rt-head-top">
+                  <th className="rt-no">No</th>
+                  <th className="rt-name">Name</th>
+                  <th className="rt-index">Index No</th>
+                  <th className="rt-nic">ID NO</th>
+                  <th className="rt-trailing">1st Paper Marks</th>
+                  <th className="rt-trailing">2nd Paper Marks</th>
+                  <th className="rt-trailing">Total Marks</th>
+                  <th className="rt-trailing">Grade</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((candidate, idx) => {
+                  const marks = getQuarterlyPaperMarks(candidate)
+                  return (
+                    <tr key={candidate.indexNo || idx} className={idx % 2 === 0 ? 'rt-even' : 'rt-odd'}>
+                      <td className="rt-no rt-center-cell">{idx + 1}</td>
+                      <td className="rt-name">{candidate.candidateName || ''}</td>
+                      <td className="rt-index">{candidate.indexNo || ''}</td>
+                      <td className="rt-nic">{candidate.nicNumber || ''}</td>
+                      <td className="rt-trailing rt-center-cell">{marks.first}</td>
+                      <td className="rt-trailing rt-center-cell">{marks.second}</td>
+                      <td className="rt-trailing rt-center-cell">{candidate.total ?? ''}</td>
+                      <td className={`rt-trailing rt-center-cell ${gradeClass(candidate.finalGrade || '')}`}>
+                        {candidate.finalGrade || ''}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!loading && filtered.length > 0 && !isQuarterlyAccountingExam && (
           <div className="results-scroll">
             <table className="results-table">
               <thead>

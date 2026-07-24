@@ -5,6 +5,17 @@ import ResultsPage from './ResultsPage.jsx'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '')
 
+const EXAM_NAME_OPTIONS = [
+  'Certificate Course of Co-operative Development Advanced Level',
+  'Diploma in Leadership & Management',
+  'Diploma in Information & Communication Technology',
+  'Exclusive Diploma Course on Secretarials Practices for Co-operative Sector Professionals',
+  'Certificate Course of the Quarterly Accounting principals',
+  'Diploma in Human Resource Management',
+  'Certificate Course in Co-operative Development',
+  'Diploma in Secretarials Practices for Co-operative Sector Professionals',
+]
+
 function Nav() {
   return (
     <nav className="site-nav">
@@ -172,16 +183,19 @@ function UploadPage() {
             <form className="upload-form upload-form-simple" onSubmit={handleCreateExam}>
               <label className="file-picker" htmlFor="exam-name">
                 <span>Exam name</span>
-                <input
+                <select
                   id="exam-name"
-                  type="text"
                   value={examName}
-                  placeholder="Certificate Course of Co-operative Development"
                   onChange={(event) => {
                     setExamName(event.target.value)
                     setErrorMessage('')
                   }}
-                />
+                >
+                  <option value="">Select exam name</option>
+                  {EXAM_NAME_OPTIONS.map((nameOption) => (
+                    <option key={nameOption} value={nameOption}>{nameOption}</option>
+                  ))}
+                </select>
               </label>
 
               <label className="file-picker" htmlFor="academic-year">

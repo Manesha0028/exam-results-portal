@@ -1,5 +1,8 @@
 const XLSX = require("xlsx");
 
+const CURRENT_FORMAT_EXAM_NAME = "Certificate Course of Co-operative Development Advanced Level";
+const QUARTERLY_ACCOUNTING_EXAM_NAME = "Certificate Course of the Quarterly Accounting principals";
+
 const DATA_START_ROW_INDEX = 7;
 const NO_COLUMN_INDEX = 1;
 const CANDIDATE_NAME_COLUMN_INDEX = 2;
@@ -88,7 +91,7 @@ function validateCandidate(candidate, rowIndex) {
   }
 }
 
-function parseExamResultsWorkbook(buffer) {
+function parseCurrentFormatWorkbook(buffer) {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const firstSheetName = workbook.SheetNames[0];
 
@@ -119,7 +122,103 @@ function parseExamResultsWorkbook(buffer) {
     });
 }
 
+function parseQuarterlyAccountingWorkbook(buffer) {
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const firstSheetName = workbook.SheetNames[0];
+
+  if (!firstSheetName) {
+    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
+  }
+
+  const worksheet = workbook.Sheets[firstSheetName];
+  const rows = XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
+    raw: false,
+    defval: "",
+    blankrows: false,
+  });
+
+  if (rows.length < 3) {
+    throw new ExamParseError("The uploaded worksheet is too short for Quarterly Accounting format.");
+  }
+
+  const startRow = 2;
+  const endRow = rows.length;
+
+  const candidates = [];
+
+  for (let rowIndex = startRow; rowIndex < endRow; rowIndex += 1) {
+    const row = rows[rowIndex] || [];
+    const noCell = normalizeCell(row[0]);
+    const nameCell = normalizeCell(row[1]);
+
+    if (!noCell && !nameCell) {
+      continue;
+    }
+
+    const indexNo = normalizeCell(row[2]);
+    if (!indexNo) {
+      continue;
+    }
+
+    const firstPaperMarks = normalizeCell(row[4]);
+    const secondPaperMarks = normalizeCell(row[5]);
+
+    const candidate = {
+      candidateName: nameCell || "Unknown Candidate",
+      nicNumber: normalizeCell(row[3]) || "N/A",
+      indexNo,
+      center: "N/A",
+      subjects: [
+        {
+          code: "QAP01",
+          name: "1st Paper Marks",
+          mark: firstPaperMarks,
+          grade: "",
+        },
+        {
+          code: "QAP02",
+          name: "2nd Paper Marks",
+          mark: secondPaperMarks,
+          grade: "",
+        },
+      ],
+      total: parseNumericCell(row[6]),
+      average: "",
+      finalGrade: normalizeCell(row[7]),
+      repeatSubjectCode: "",
+    };
+
+    validateCandidate(candidate, rowIndex);
+    candidates.push(candidate);
+  }
+
+  return candidates;
+}
+
+function normalizeExamName(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function parseExamResultsWorkbookForExam(examName, buffer) {
+  const normalizedExamName = normalizeExamName(examName);
+
+  if (normalizedExamName === normalizeExamName(CURRENT_FORMAT_EXAM_NAME)) {
+    return parseCurrentFormatWorkbook(buffer);
+  }
+
+  if (normalizedExamName === normalizeExamName(QUARTERLY_ACCOUNTING_EXAM_NAME)) {
+    return parseQuarterlyAccountingWorkbook(buffer);
+  }
+
+  throw new ExamParseError(
+    `No Excel format is configured for exam \"${examName}\" yet.`,
+  );
+}
+
 module.exports = {
   ExamParseError,
-  parseExamResultsWorkbook,
+  parseExamResultsWorkbookForExam,
+  CURRENT_FORMAT_EXAM_NAME,
+  QUARTERLY_ACCOUNTING_EXAM_NAME,
 };

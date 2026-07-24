@@ -2,7 +2,7 @@ const mongoose = require("mongoose");
 
 const Exam = require("../models/Exam");
 const ExamResult = require("../models/ExamResult");
-const { ExamParseError, parseExamResultsWorkbook } = require("../services/examResultParser");
+const { ExamParseError, parseExamResultsWorkbookForExam } = require("../services/examResultParser");
 
 async function uploadExamResults(req, res, next) {
   try {
@@ -30,7 +30,7 @@ async function uploadExamResults(req, res, next) {
       return res.status(404).json({ message: "Selected exam was not found." });
     }
 
-    const parsedResults = parseExamResultsWorkbook(req.file.buffer);
+    const parsedResults = parseExamResultsWorkbookForExam(exam.name, req.file.buffer);
 
     if (parsedResults.length === 0) {
       return res.status(400).json({ message: "No candidate records were found in the uploaded file." });
