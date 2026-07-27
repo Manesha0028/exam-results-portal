@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 
 const Exam = require("./models/Exam");
 const ExamResult = require("./models/ExamResult");
+const ExamUpload = require("./models/ExamUpload");
 const examRoutes = require("./routes/examRoutes");
 const examResultRoutes = require("./routes/examResultRoutes");
 
@@ -95,7 +96,21 @@ async function syncModelIndexes() {
     }
   }
 
-  await Promise.all([Exam.syncIndexes(), ExamResult.syncIndexes()]);
+  try {
+    await ExamResult.collection.dropIndex("exam_1_indexNo_1");
+    console.log("Dropped legacy index: examresults.exam_1_indexNo_1");
+  } catch (error) {
+    const isMissingIndexError =
+      error?.codeName === "IndexNotFound" ||
+      error?.code === 27 ||
+      (typeof error?.message === "string" && error.message.includes("index not found"));
+
+    if (!isMissingIndexError) {
+      throw error;
+    }
+  }
+
+  await Promise.all([Exam.syncIndexes(), ExamResult.syncIndexes(), ExamUpload.syncIndexes()]);
   console.log("MongoDB indexes synced");
 }
 
