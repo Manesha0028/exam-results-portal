@@ -34,6 +34,12 @@ const examResultSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    upload: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "ExamUpload",
+      index: true,
+      default: null,
+    },
     candidateName: {
       type: String,
       required: true,
@@ -87,6 +93,6 @@ const examResultSchema = new mongoose.Schema(
   },
 );
 
-examResultSchema.index({ exam: 1, indexNo: 1 }, { unique: true });
+examResultSchema.index({ upload: 1, indexNo: 1 });
 
 module.exports = mongoose.model("ExamResult", examResultSchema);

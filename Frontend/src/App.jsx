@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Routes, Route, NavLink } from 'react-router-dom'
 import './App.css'
 import ResultsPage from './ResultsPage.jsx'
+import UploadsPage from './UploadsPage.jsx'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '')
 
@@ -22,6 +23,7 @@ function Nav() {
       <span className="site-nav-brand">Exam Results Portal</span>
       <div className="site-nav-links">
         <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Upload</NavLink>
+        <NavLink to="/uploads" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Uploaded Sheets</NavLink>
         <NavLink to="/results" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Results</NavLink>
       </div>
     </nav>
@@ -313,6 +315,7 @@ function App() {
       <Nav />
       <Routes>
         <Route path="/" element={<UploadPage />} />
+        <Route path="/uploads" element={<UploadsPage />} />
         <Route path="/results" element={<ResultsPage />} />
       </Routes>
     </>

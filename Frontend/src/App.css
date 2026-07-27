@@ -249,6 +249,10 @@
   font-size: 1.7rem;
 }
 
+.uploads-hero h1 {
+  font-size: 1.7rem;
+}
+
 .grade-legend {
   margin: 12px 0 0;
   font-size: 0.82rem;
@@ -271,6 +275,11 @@
 
 /* ── Results table card ──────────────────────────────────── */
 .results-table-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.uploads-card {
   padding: 0;
   overflow: hidden;
 }
@@ -349,6 +358,67 @@
 
 .results-table tbody tr:hover {
   background: rgba(14, 124, 102, 0.07);
+}
+
+.upload-file-cell {
+  display: grid;
+  gap: 4px;
+}
+
+.upload-file-cell strong {
+  font-weight: 700;
+  color: var(--heading);
+}
+
+.upload-file-cell small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.table-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  text-decoration: none;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.table-action:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.table-action-download {
+  background: rgba(14, 124, 102, 0.12);
+  color: #0f5f4f;
+  border-color: rgba(14, 124, 102, 0.2);
+}
+
+.table-action-delete {
+  background: rgba(181, 51, 34, 0.12);
+  color: #8d281c;
+  border-color: rgba(181, 51, 34, 0.18);
+}
+
+.table-action:disabled {
+  opacity: 0.7;
+  cursor: progress;
 }
 
 /* grade colour chips */

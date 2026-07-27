@@ -55,6 +55,99 @@ function parseNumericCell(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function getWorkbookRows(buffer) {
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const firstSheetName = workbook.SheetNames[0];
+
+  if (!firstSheetName) {
+    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
+  }
+
+  const worksheet = workbook.Sheets[firstSheetName];
+
+  return XLSX.utils.sheet_to_json(worksheet, {
+    header: 1,
+    raw: false,
+    defval: "",
+    blankrows: false,
+  });
+}
+
+function validateAdvancedLevelResultsSheet(buffer) {
+  const rows = getWorkbookRows(buffer);
+  const columnCount = rows.reduce((maxColumns, row) => Math.max(maxColumns, (row || []).length), 0);
+
+  if (!rows || rows.length === 0) {
+    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
+  }
+
+  if (columnCount < 29) {
+    throw new ExamParseError(
+      `Invalid column count. Expected 29 columns, found ${columnCount}. Please ensure you are uploading the full 10-subject result sheet.`,
+    );
+  }
+
+  const topRowsText = rows.slice(0, 5).flat().map(normalizeCell).filter(Boolean);
+  const fullHeaderString = topRowsText.join(" ");
+
+  const requiredKeywords = [
+    "National Co-operative Council",
+    "Certificate Course",
+    "Result Sheet",
+  ];
+
+  const missingKeywords = requiredKeywords.filter(
+    (keyword) => !fullHeaderString.toLowerCase().includes(keyword.toLowerCase()),
+  );
+
+  if (missingKeywords.length > 0) {
+    throw new ExamParseError(`Missing expected header title text: ${missingKeywords.join(", ")}.`);
+  }
+
+  const requiredCodes = Array.from({ length: 10 }, (_value, index) => `CDAL${String(index + 1).padStart(2, "0")}`);
+  const foundCodes = requiredCodes.filter((code) => fullHeaderString.includes(code));
+
+  if (foundCodes.length < requiredCodes.length) {
+    throw new ExamParseError(
+      `Uploaded file lacks the required subject codes (CDAL01 - CDAL10). Found: ${foundCodes.length}/10 codes.`,
+    );
+  }
+}
+
+function validateQuarterlyAccountingSheet(buffer) {
+  const rows = getWorkbookRows(buffer);
+
+  if (!rows || rows.length === 0) {
+    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
+  }
+
+  const columnCount = rows.reduce((maxColumns, row) => Math.max(maxColumns, (row || []).length), 0);
+  const dataBlockRows = rows.map((row) => (row || []).slice(0, 8));
+  const dataBlockColumnCount = dataBlockRows.reduce((maxColumns, row) => Math.max(maxColumns, row.length), 0);
+
+  if (dataBlockColumnCount < 8) {
+    throw new ExamParseError(
+      `Invalid column layout. Expected 8 columns for this section, but found ${dataBlockColumnCount}. If you are uploading the 10-subject result sheet, please use the correct upload page.`,
+    );
+  }
+
+  const topRowsText = dataBlockRows.slice(0, 7).flat().map(normalizeCell).filter(Boolean);
+  const fullHeaderString = topRowsText.join(" ").toLowerCase();
+
+  if (!fullHeaderString.includes("quarterly accounting") && !fullHeaderString.includes("accounting")) {
+    throw new ExamParseError("Document title mismatch. Expected 'Quarterly Accounting principals' result sheet.");
+  }
+
+  const requiredColumnSignatures = ["1st paper", "2nd paper", "total marks"];
+  const missingSignatures = requiredColumnSignatures.filter(
+    (signature) => !fullHeaderString.includes(signature),
+  );
+
+  if (missingSignatures.length > 0) {
+    throw new ExamParseError(`Missing required paper mark headers: ${missingSignatures.join(", ")}.`);
+  }
+}
+
 function isCandidateRow(row, trailingIndexes) {
   return normalizeCell(row[INDEX_NO_COLUMN_INDEX]);
 }
@@ -92,20 +185,8 @@ function validateCandidate(candidate, rowIndex) {
 }
 
 function parseCurrentFormatWorkbook(buffer) {
-  const workbook = XLSX.read(buffer, { type: "buffer" });
-  const firstSheetName = workbook.SheetNames[0];
-
-  if (!firstSheetName) {
-    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
-  }
-
-  const worksheet = workbook.Sheets[firstSheetName];
-  const rows = XLSX.utils.sheet_to_json(worksheet, {
-    header: 1,
-    raw: false,
-    defval: "",
-    blankrows: false,
-  });
+  validateAdvancedLevelResultsSheet(buffer);
+  const rows = getWorkbookRows(buffer);
 
   if (rows.length <= DATA_START_ROW_INDEX) {
     throw new ExamParseError("The uploaded worksheet is too short to contain the required header and candidate rows.");
@@ -123,20 +204,8 @@ function parseCurrentFormatWorkbook(buffer) {
 }
 
 function parseQuarterlyAccountingWorkbook(buffer) {
-  const workbook = XLSX.read(buffer, { type: "buffer" });
-  const firstSheetName = workbook.SheetNames[0];
-
-  if (!firstSheetName) {
-    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
-  }
-
-  const worksheet = workbook.Sheets[firstSheetName];
-  const rows = XLSX.utils.sheet_to_json(worksheet, {
-    header: 1,
-    raw: false,
-    defval: "",
-    blankrows: false,
-  });
+  validateQuarterlyAccountingSheet(buffer);
+  const rows = getWorkbookRows(buffer);
 
   if (rows.length < 3) {
     throw new ExamParseError("The uploaded worksheet is too short for Quarterly Accounting format.");
@@ -149,24 +218,25 @@ function parseQuarterlyAccountingWorkbook(buffer) {
 
   for (let rowIndex = startRow; rowIndex < endRow; rowIndex += 1) {
     const row = rows[rowIndex] || [];
-    const noCell = normalizeCell(row[0]);
-    const nameCell = normalizeCell(row[1]);
+    const dataRow = row.slice(0, 8);
+    const noCell = normalizeCell(dataRow[0]);
+    const nameCell = normalizeCell(dataRow[1]);
 
     if (!noCell && !nameCell) {
       continue;
     }
 
-    const indexNo = normalizeCell(row[2]);
+    const indexNo = normalizeCell(dataRow[2]);
     if (!indexNo) {
       continue;
     }
 
-    const firstPaperMarks = normalizeCell(row[4]);
-    const secondPaperMarks = normalizeCell(row[5]);
+    const firstPaperMarks = normalizeCell(dataRow[4]);
+    const secondPaperMarks = normalizeCell(dataRow[5]);
 
     const candidate = {
       candidateName: nameCell || "Unknown Candidate",
-      nicNumber: normalizeCell(row[3]) || "N/A",
+      nicNumber: normalizeCell(dataRow[3]) || "N/A",
       indexNo,
       center: "N/A",
       subjects: [
@@ -183,9 +253,9 @@ function parseQuarterlyAccountingWorkbook(buffer) {
           grade: "",
         },
       ],
-      total: parseNumericCell(row[6]),
+      total: parseNumericCell(dataRow[6]),
       average: "",
-      finalGrade: normalizeCell(row[7]),
+      finalGrade: normalizeCell(dataRow[7]),
       repeatSubjectCode: "",
     };
 
