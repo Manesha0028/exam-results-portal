@@ -104,6 +104,42 @@ function applyFilters(results, { search, status, center, finalGrade, minTotal, m
   })
 }
 
+function isEligibleForIslandRank(candidate) {
+  const finalGrade = String(candidate.finalGrade || '').trim().toUpperCase()
+  const hasRepeat = String(candidate.repeatSubjectCode || '').trim() !== ''
+  const hasNotCompleted =
+    finalGrade.includes('NOT') ||
+    finalGrade.includes('COMPLETE') ||
+    finalGrade.includes('INCOMPLETE') ||
+    finalGrade.includes('NC')
+
+  if (!Number.isFinite(Number(candidate.total))) return false
+  if (!finalGrade) return false
+  if (finalGrade === 'AB' || finalGrade === 'F' || finalGrade.includes('FAIL')) return false
+  if (hasNotCompleted) return false
+  if (hasRepeat) return false
+
+  const subjectGrades = (candidate.subjects || [])
+    .map((subject) => String(subject.grade || '').trim().toUpperCase())
+    .filter(Boolean)
+
+  // Exclude if any subject contains S, AB, F, or appears incomplete.
+  return !subjectGrades.some((grade) => {
+    if (grade === 'S' || grade === 'AB' || grade === 'F') return true
+    if (grade.includes('FAIL') || grade.includes('NOT') || grade.includes('COMPLETE') || grade.includes('INCOMPLETE')) return true
+    return false
+  })
+}
+
+function finalGradeRankWeight(finalGradeValue) {
+  const grade = String(finalGradeValue || '').trim().toUpperCase()
+  if (grade === 'D') return 4
+  if (grade === 'C') return 3
+  if (grade === 'S') return 2
+  if (grade === 'F') return 1
+  return 0
+}
+
 export default function ResultsPage() {
   const [exams, setExams] = useState([])
   const [results, setResults] = useState([])
@@ -117,6 +153,7 @@ export default function ResultsPage() {
   const [selectedExamYear, setSelectedExamYear] = useState('')
   const [appliedExamName, setAppliedExamName] = useState('')
   const [appliedExamYear, setAppliedExamYear] = useState('')
+  const [showIslandRanks, setShowIslandRanks] = useState(false)
 
   // filter state
   const [search,     setSearch]     = useState('')
@@ -176,6 +213,20 @@ export default function ResultsPage() {
     [searchedResults, search, status, center, finalGrade, minTotal, maxTotal],
   )
 
+  const topIslandRanks = useMemo(() => {
+    return searchedResults
+      .filter((candidate) => isEligibleForIslandRank(candidate))
+      .sort((a, b) => {
+        const totalDifference = Number(b.total) - Number(a.total)
+        if (totalDifference !== 0) return totalDifference
+        const finalGradeDifference =
+          finalGradeRankWeight(b.finalGrade) - finalGradeRankWeight(a.finalGrade)
+        if (finalGradeDifference !== 0) return finalGradeDifference
+        return (a.candidateName || '').localeCompare(b.candidateName || '')
+      })
+      .slice(0, 3)
+  }, [searchedResults])
+
   function handleExamSearch() {
     if (!selectedExamName || !selectedExamYear) {
       setSelectionError('Select exam name and exam year, then click Search.')
@@ -197,6 +248,7 @@ export default function ResultsPage() {
     setHasSearched(false)
     setAppliedExamName(selectedExamName)
     setAppliedExamYear(selectedExamYear)
+    setShowIslandRanks(false)
     resetFilters()
 
     fetch(`${API_BASE_URL}/api/exam-results?examId=${encodeURIComponent(selectedExam.id)}`)
@@ -286,6 +338,37 @@ export default function ResultsPage() {
       </section>
 
       <section className="panel-card filter-bar">
+        <div className="island-ranks-toolbar">
+          <button
+            className="submit-button island-ranks-button"
+            type="button"
+            onClick={() => setShowIslandRanks((current) => !current)}
+            disabled={!hasSearched || searchedResults.length === 0}
+          >
+            Islan Ranks
+          </button>
+        </div>
+
+        {showIslandRanks && hasSearched && (
+          <div className="island-ranks-card">
+            <h3>Island Top 3</h3>
+            {topIslandRanks.length === 0 ? (
+              <p className="rank-empty">No eligible candidates found for island ranks.</p>
+            ) : (
+              <ol>
+                {topIslandRanks.map((candidate, index) => {
+                  const placeLabel = index === 0 ? 'First place' : index === 1 ? 'Second place' : 'Third place'
+                  return (
+                    <li key={`${candidate.indexNo || candidate.nicNumber || candidate.candidateName || 'candidate'}-${index}`}>
+                      <strong>{placeLabel}:</strong> {candidate.candidateName || 'Unnamed candidate'} ({candidate.total} marks)
+                    </li>
+                  )
+                })}
+              </ol>
+            )}
+          </div>
+        )}
+
         {/* Row 1: search + status chips */}
         <div className="filter-row">
           <div className="filter-search-wrap">
