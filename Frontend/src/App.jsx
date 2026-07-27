@@ -21,7 +21,7 @@ function Nav() {
   return (
     <nav className="site-nav">
       <div className="site-nav-brand">
-        <img className="site-logo" src="/favicon.svg?v=4" alt="National Co-Operative Council of Sri Lanka logo" />
+        <img className="site-logo" src="/company-logo.png" alt="National Co-Operative Council of Sri Lanka logo" />
         <div className="site-brand-copy">
           <span className="site-brand-en">National Co-Operative Council of Sri Lanka</span>
           <span className="site-brand-ta">இலங்கை தேசிய கூட்டுறவு சபை</span>

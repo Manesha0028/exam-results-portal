@@ -288,9 +288,13 @@ export default function ResultsPage() {
             ? `${appliedExamName} · Academic Year ${appliedExamYear}`
             : 'Select exam name and year, then search to view results.'}
         </p>
-        <p className="grade-legend">
-          (75 &ge; D – Distinction)&ensp;(55–74 = C – Credit)&ensp;(35–54 = S – Simple Pass)&ensp;(34&lt; F = Failure)&ensp;(AB = Absent)
-        </p>
+        <div className="grade-legend" role="note" aria-label="Grade legend">
+          <span className="grade-legend-chip">75 &ge; D - Distinction</span>
+          <span className="grade-legend-chip">55-74 = C - Credit</span>
+          <span className="grade-legend-chip">35-54 = S - Simple Pass</span>
+          <span className="grade-legend-chip">34&lt; F = Failure</span>
+          <span className="grade-legend-chip">AB = Absent</span>
+        </div>
       </section>
 
       {/* ── Filter bar ── */}
