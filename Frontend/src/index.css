@@ -2,12 +2,15 @@
   --text: #29413d;
   --heading: #14221f;
   --muted: #5d6f6c;
-  --bg: #f3ede1;
+  --bg: #f6e7ef;
   --hero-bg: linear-gradient(145deg, rgba(255, 251, 243, 0.96), rgba(243, 230, 207, 0.92));
   --card-bg: rgba(255, 253, 249, 0.92);
   --border: rgba(24, 49, 44, 0.12);
   --border-soft: rgba(24, 49, 44, 0.08);
   --accent: #8f4a16;
+  --theme-primary: #0f6b61;
+  --theme-soft: rgba(15, 107, 97, 0.08);
+  --theme-border: rgba(15, 107, 97, 0.22);
   --shadow:
     0 20px 48px rgba(48, 68, 63, 0.12);
 
@@ -34,8 +37,10 @@ body {
   margin: 0;
   min-width: 320px;
   background:
-    radial-gradient(circle at top left, rgba(222, 186, 120, 0.24), transparent 24%),
-    linear-gradient(180deg, #f7f2e8 0%, #efe5d5 100%);
+    radial-gradient(circle at 8% -8%, rgba(15, 107, 97, 0.22), transparent 34%),
+    radial-gradient(circle at 92% 10%, rgba(143, 74, 22, 0.18), transparent 30%),
+    radial-gradient(circle at 50% 110%, rgba(20, 34, 31, 0.1), transparent 40%),
+    linear-gradient(180deg, #fff9fb 0%, #f8eef3 55%, #f4e5ec 100%);
 }
 
 #root {
@@ -43,6 +48,8 @@ body {
   margin: 0 auto;
   min-height: 100svh;
   box-sizing: border-box;
+  background:
+    linear-gradient(110deg, rgba(255, 255, 255, 0.08), rgba(15, 107, 97, 0.03));
 }
 
 h1,

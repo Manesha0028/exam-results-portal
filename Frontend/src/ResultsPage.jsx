@@ -140,6 +140,13 @@ function finalGradeRankWeight(finalGradeValue) {
   return 0
 }
 
+function islandPlaceLabel(place) {
+  if (place === 1) return 'First place'
+  if (place === 2) return 'Second place'
+  if (place === 3) return 'Third place'
+  return `${place}th place`
+}
+
 export default function ResultsPage() {
   const [exams, setExams] = useState([])
   const [results, setResults] = useState([])
@@ -214,7 +221,7 @@ export default function ResultsPage() {
   )
 
   const topIslandRanks = useMemo(() => {
-    return searchedResults
+    const sortedEligibleCandidates = searchedResults
       .filter((candidate) => isEligibleForIslandRank(candidate))
       .sort((a, b) => {
         const totalDifference = Number(b.total) - Number(a.total)
@@ -224,7 +231,30 @@ export default function ResultsPage() {
         if (finalGradeDifference !== 0) return finalGradeDifference
         return (a.candidateName || '').localeCompare(b.candidateName || '')
       })
-      .slice(0, 3)
+
+    const rankedCandidates = []
+    let currentPlace = 0
+    let previousRankKey = ''
+
+    for (const candidate of sortedEligibleCandidates) {
+      const rankKey = `${Number(candidate.total)}|${finalGradeRankWeight(candidate.finalGrade)}`
+
+      if (rankKey !== previousRankKey) {
+        currentPlace += 1
+        previousRankKey = rankKey
+      }
+
+      if (currentPlace > 3) {
+        break
+      }
+
+      rankedCandidates.push({
+        candidate,
+        place: currentPlace,
+      })
+    }
+
+    return rankedCandidates
   }, [searchedResults])
 
   function handleExamSearch() {
@@ -355,16 +385,15 @@ export default function ResultsPage() {
 
         {showIslandRanks && hasSearched && (
           <div className="island-ranks-card">
-            <h3>Island Top 3</h3>
+            <h3>Island Top 3 Places</h3>
             {topIslandRanks.length === 0 ? (
               <p className="rank-empty">No eligible candidates found for island ranks.</p>
             ) : (
               <ol>
-                {topIslandRanks.map((candidate, index) => {
-                  const placeLabel = index === 0 ? 'First place' : index === 1 ? 'Second place' : 'Third place'
+                {topIslandRanks.map(({ candidate, place }, index) => {
                   return (
-                    <li key={`${candidate.indexNo || candidate.nicNumber || candidate.candidateName || 'candidate'}-${index}`}>
-                      <strong>{placeLabel}:</strong> {candidate.candidateName || 'Unnamed candidate'} ({candidate.total} marks)
+                    <li key={`${place}-${candidate.indexNo || candidate.nicNumber || candidate.candidateName || 'candidate'}-${index}`}>
+                      <strong>{islandPlaceLabel(place)}:</strong> {candidate.candidateName || 'Unnamed candidate'} ({candidate.total} marks)
                     </li>
                   )
                 })}
