@@ -29,6 +29,103 @@ const FIXED_SUBJECTS = [
   { name: "Field Assignment", code: "CDAL10" },
 ];
 
+const COOPERATIVE_DEVELOPMENT_SUBJECTS = [
+  { name: "Co-operative & Business Environment", code: "CDOL01" },
+  { name: "Management", code: "CDOL02" },
+  { name: "Accounting & Co-operative Accounting Procedures", code: "CDOL03" },
+  { name: "Legal Environment & Co-operative Law", code: "CDOL04" },
+  { name: "Office Management", code: "CDOL05" },
+  { name: "Marketing & Co-operative Marketing", code: "CDOL06" },
+];
+
+const COOPERATIVE_DEVELOPMENT_HEADER_CHECKS = [
+  { cell: "B6", expected: ["No", "No."] },
+  { cell: "F7", expected: ["M"] },
+  { cell: "G7", expected: ["G"] },
+  { cell: "H7", expected: ["M"] },
+  { cell: "I7", expected: ["G"] },
+  { cell: "J7", expected: ["M"] },
+  { cell: "K7", expected: ["G"] },
+  { cell: "L7", expected: ["M"] },
+  { cell: "M7", expected: ["G"] },
+  { cell: "N7", expected: ["M"] },
+  { cell: "O7", expected: ["G"] },
+  { cell: "P7", expected: ["M"] },
+  { cell: "Q7", expected: ["G"] },
+];
+
+const COOPERATIVE_DEVELOPMENT_COLUMN_MAP = [
+  { colLetter: "B", name: "No" },
+  { colLetter: "C", name: "Candidate's Name" },
+  { colLetter: "D", name: "NIC Number" },
+  { colLetter: "E", name: "Index No" },
+  { colLetter: "F", name: "Co-operative & Business Environment CDOL01 Mark" },
+  { colLetter: "G", name: "Co-operative & Business Environment CDOL01 Grade" },
+  { colLetter: "H", name: "Management CDOL02 Mark" },
+  { colLetter: "I", name: "Management CDOL02 Grade" },
+  { colLetter: "J", name: "Accounting & Co-operative Accounting Procedures CDOL03 Mark" },
+  { colLetter: "K", name: "Accounting & Co-operative Accounting Procedures CDOL03 Grade" },
+  { colLetter: "L", name: "Legal Environment & Co-operative Law CDOL04 Mark" },
+  { colLetter: "M", name: "Legal Environment & Co-operative Law CDOL04 Grade" },
+  { colLetter: "N", name: "Office Management CDOL05 Mark" },
+  { colLetter: "O", name: "Office Management CDOL05 Grade" },
+  { colLetter: "P", name: "Marketing & Co-operative Marketing CDOL06 Mark" },
+  { colLetter: "Q", name: "Marketing & Co-operative Marketing CDOL06 Grade" },
+  { colLetter: "R", name: "Total" },
+  { colLetter: "S", name: "Average" },
+  { colLetter: "T", name: "Final Grade" },
+  { colLetter: "AA", name: "Repeat Subject Code" },
+  { colLetter: "AB", name: "Place" },
+];
+
+const COOPERATIVE_DEVELOPMENT_HEADERS = [
+  "No",
+  "Candidate's Name",
+  "NIC Number",
+  "Index No",
+  "Co-operative & Business Environment CDOL01 Mark",
+  "Co-operative & Business Environment CDOL01 Grade",
+  "Management CDOL02 Mark",
+  "Management CDOL02 Grade",
+  "Accounting & Co-operative Accounting Procedures CDOL03 Mark",
+  "Accounting & Co-operative Accounting Procedures CDOL03 Grade",
+  "Legal Environment & Co-operative Law CDOL04 Mark",
+  "Legal Environment & Co-operative Law CDOL04 Grade",
+  "Office Management CDOL05 Mark",
+  "Office Management CDOL05 Grade",
+  "Marketing & Co-operative Marketing CDOL06 Mark",
+  "Marketing & Co-operative Marketing CDOL06 Grade",
+  "Total",
+  "Average",
+  "Final Grade",
+  "Repeat Subject Code",
+  "Place",
+];
+
+const COOPERATIVE_DEVELOPMENT_CELL_MAP = [
+  { key: "no", col: "B" },
+  { key: "candidateName", col: "C" },
+  { key: "nicNumber", col: "D" },
+  { key: "indexNo", col: "E" },
+  { key: "cdol01Mark", col: "F" },
+  { key: "cdol01Grade", col: "G" },
+  { key: "cdol02Mark", col: "H" },
+  { key: "cdol02Grade", col: "I" },
+  { key: "cdol03Mark", col: "J" },
+  { key: "cdol03Grade", col: "K" },
+  { key: "cdol04Mark", col: "L" },
+  { key: "cdol04Grade", col: "M" },
+  { key: "cdol05Mark", col: "N" },
+  { key: "cdol05Grade", col: "O" },
+  { key: "cdol06Mark", col: "P" },
+  { key: "cdol06Grade", col: "Q" },
+  { key: "total", col: "R" },
+  { key: "average", col: "S" },
+  { key: "finalGrade", col: "T" },
+  { key: "repeatSubjectCode", col: "AA" },
+  { key: "place", col: "AB" },
+];
+
 class ExamParseError extends Error {
   constructor(message) {
     super(message);
@@ -55,6 +152,32 @@ function parseNumericCell(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function normalizeCooperativeDevelopmentFinalGrade(value) {
+  const normalized = normalizeCell(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  const gradeMap = {
+    0: "ordinary class",
+    1: "second upper class",
+    2: "first upper class",
+    4: "repeat",
+  };
+
+  if (Object.prototype.hasOwnProperty.call(gradeMap, normalized)) {
+    return gradeMap[normalized];
+  }
+
+  const numericValue = Number(normalized);
+  if (Number.isFinite(numericValue) && Object.prototype.hasOwnProperty.call(gradeMap, String(numericValue))) {
+    return gradeMap[String(numericValue)];
+  }
+
+  return normalized;
+}
+
 function getWorkbookRows(buffer) {
   const workbook = XLSX.read(buffer, { type: "buffer" });
   const firstSheetName = workbook.SheetNames[0];
@@ -71,6 +194,46 @@ function getWorkbookRows(buffer) {
     defval: "",
     blankrows: false,
   });
+}
+
+function getWorkbookWorksheet(buffer) {
+  const workbook = XLSX.read(buffer, { type: "buffer" });
+  const firstSheetName = workbook.SheetNames[0];
+
+  if (!firstSheetName) {
+    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
+  }
+
+  return workbook.Sheets[firstSheetName];
+}
+
+function getCellText(worksheet, cellAddress) {
+  const cell = worksheet[cellAddress];
+  return normalizeCell(cell?.v ?? cell?.w ?? "");
+}
+
+function getMergedCellText(worksheet, cellAddress) {
+  const directValue = getCellText(worksheet, cellAddress);
+
+  if (directValue) {
+    return directValue;
+  }
+
+  const merges = worksheet["!merges"] || [];
+  const target = XLSX.utils.decode_cell(cellAddress);
+
+  for (const merge of merges) {
+    if (
+      target.r >= merge.s.r &&
+      target.r <= merge.e.r &&
+      target.c >= merge.s.c &&
+      target.c <= merge.e.c
+    ) {
+      return getCellText(worksheet, XLSX.utils.encode_cell(merge.s));
+    }
+  }
+
+  return "";
 }
 
 function validateAdvancedLevelResultsSheet(buffer) {
@@ -145,6 +308,51 @@ function validateQuarterlyAccountingSheet(buffer) {
 
   if (missingSignatures.length > 0) {
     throw new ExamParseError(`Missing required paper mark headers: ${missingSignatures.join(", ")}.`);
+  }
+}
+
+function validateCooperativeDevelopmentSheet(buffer) {
+  const worksheet = getWorkbookWorksheet(buffer);
+
+  if (!worksheet) {
+    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
+  }
+
+  const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
+
+  if (range.e.r + 1 < 8) {
+    throw new ExamParseError("Excel sheet missing or contains too few rows.");
+  }
+
+  const b6Value = getMergedCellText(worksheet, "B6").toLowerCase();
+  if (b6Value !== "no" && b6Value !== "no.") {
+    throw new ExamParseError(`Format Mismatch: Cell B6 must contain 'No', but found '${getMergedCellText(worksheet, "B6")}'.`);
+  }
+
+  for (const check of COOPERATIVE_DEVELOPMENT_HEADER_CHECKS) {
+    if (check.cell === "B6") {
+      continue;
+    }
+
+    const value = getMergedCellText(worksheet, check.cell).toUpperCase();
+    if (!check.expected.includes(value)) {
+      throw new ExamParseError(`Format Mismatch: ${check.cell} expected '${check.expected[0]}', but found '${value}'.`);
+    }
+  }
+
+  const headerText = [];
+  for (let rowNumber = 1; rowNumber <= 7; rowNumber += 1) {
+    COOPERATIVE_DEVELOPMENT_COLUMN_MAP.forEach((column) => {
+      headerText.push(getMergedCellText(worksheet, `${column.colLetter}${rowNumber}`));
+    });
+  }
+
+  const fullHeaderString = headerText.join(" ").toLowerCase();
+  const requiredCodes = ["CDOL01", "CDOL02", "CDOL03", "CDOL04", "CDOL05", "CDOL06"];
+  const missingCodes = requiredCodes.filter((code) => !fullHeaderString.includes(code.toLowerCase()));
+
+  if (missingCodes.length > 0) {
+    throw new ExamParseError(`Format Mismatch: Lacks required subject codes: ${missingCodes.join(", ")}.`);
   }
 }
 
@@ -266,6 +474,51 @@ function parseQuarterlyAccountingWorkbook(buffer) {
   return candidates;
 }
 
+function parseCooperativeDevelopmentWorkbook(buffer) {
+  validateCooperativeDevelopmentSheet(buffer);
+  const worksheet = getWorkbookWorksheet(buffer);
+  const results = [];
+  const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
+  const maxRow = range.e.r + 1;
+
+  for (let rowNumber = 8; rowNumber <= maxRow; rowNumber += 1) {
+    const noValue = getMergedCellText(worksheet, `B${rowNumber}`);
+    const nameValue = getMergedCellText(worksheet, `C${rowNumber}`);
+
+    if (!noValue && !nameValue) {
+      break;
+    }
+
+    const candidate = {
+      candidateName: getMergedCellText(worksheet, `C${rowNumber}`),
+      nicNumber: getMergedCellText(worksheet, `D${rowNumber}`),
+      indexNo: getMergedCellText(worksheet, `E${rowNumber}`),
+      center: "",
+      subjects: COOPERATIVE_DEVELOPMENT_SUBJECTS.map((subject, subjectIndex) => {
+        const markCol = String.fromCharCode(70 + subjectIndex * 2);
+        const gradeCol = String.fromCharCode(71 + subjectIndex * 2);
+
+        return {
+          code: subject.code,
+          name: subject.name,
+          mark: getMergedCellText(worksheet, `${markCol}${rowNumber}`),
+          grade: getMergedCellText(worksheet, `${gradeCol}${rowNumber}`),
+        };
+      }),
+      total: parseNumericCell(getMergedCellText(worksheet, `R${rowNumber}`)),
+      average: getMergedCellText(worksheet, `S${rowNumber}`),
+      finalGrade: normalizeCooperativeDevelopmentFinalGrade(getMergedCellText(worksheet, `T${rowNumber}`)),
+      repeatSubjectCode: getMergedCellText(worksheet, `AA${rowNumber}`),
+      place: getMergedCellText(worksheet, `AB${rowNumber}`),
+    };
+
+    validateCandidate(candidate, rowNumber);
+    results.push(candidate);
+  }
+
+  return results;
+}
+
 function normalizeExamName(value) {
   return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
 }
@@ -275,6 +528,10 @@ function parseExamResultsWorkbookForExam(examName, buffer) {
 
   if (normalizedExamName === normalizeExamName(CURRENT_FORMAT_EXAM_NAME)) {
     return parseCurrentFormatWorkbook(buffer);
+  }
+
+  if (normalizedExamName === normalizeExamName("Certificate Course in Co-operative Development")) {
+    return parseCooperativeDevelopmentWorkbook(buffer);
   }
 
   if (normalizedExamName === normalizeExamName(QUARTERLY_ACCOUNTING_EXAM_NAME)) {
@@ -290,5 +547,6 @@ module.exports = {
   ExamParseError,
   parseExamResultsWorkbookForExam,
   CURRENT_FORMAT_EXAM_NAME,
+  COOPERATIVE_DEVELOPMENT_SUBJECTS,
   QUARTERLY_ACCOUNTING_EXAM_NAME,
 };
