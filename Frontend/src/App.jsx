@@ -21,7 +21,14 @@ const EXAM_NAME_OPTIONS = [
 function Nav() {
   return (
     <nav className="site-nav">
-      <span className="site-nav-brand">Exam Results Portal</span>
+      <div className="site-nav-brand">
+        <img className="site-logo" src="/company-logo.png" alt="National Co-Operative Council of Sri Lanka logo" />
+        <div className="site-brand-copy">
+          <span className="site-brand-en">National Co-Operative Council of Sri Lanka</span>
+          <span className="site-brand-ta">இலங்கை தேசிய கூட்டுறவு சபை</span>
+          <span className="site-brand-si">ශ්‍රී ලංකා ජාතික සමුපකාර මණ්ඩලය</span>
+        </div>
+      </div>
       <div className="site-nav-links">
         <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Upload</NavLink>
         <NavLink to="/uploads" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Uploaded Sheets</NavLink>
@@ -61,13 +68,8 @@ function UploadPage() {
       )
 
       if (!hasCurrentMatch) {
-        if (nextExams.length > 0) {
-          setSelectedUploadExamName(nextExams[0].name)
-          setSelectedUploadExamYear(nextExams[0].academicYear)
-        } else {
-          setSelectedUploadExamName('')
-          setSelectedUploadExamYear('')
-        }
+        setSelectedUploadExamName('')
+        setSelectedUploadExamYear('')
       }
     } catch (_error) {
       setExams([])
@@ -226,7 +228,7 @@ function UploadPage() {
             <p className="eyebrow">2. Upload Results</p>
             <form className="upload-form upload-form-simple" onSubmit={handleSubmit}>
               <label className="file-picker" htmlFor="exam-name-select">
-                <span>Select exam name (required)</span>
+                <span>Select exam name <span className="required-indicator" aria-hidden="true">*</span></span>
                 <select
                   id="exam-name-select"
                   value={selectedUploadExamName}
@@ -245,7 +247,7 @@ function UploadPage() {
               </label>
 
               <label className="file-picker" htmlFor="exam-year-select">
-                <span>Select exam year (required)</span>
+                <span>Select exam year <span className="required-indicator" aria-hidden="true">*</span></span>
                 <select
                   id="exam-year-select"
                   value={selectedUploadExamYear}

@@ -61,6 +61,11 @@
   color: var(--heading);
 }
 
+.required-indicator {
+  color: #c62828;
+  font-weight: 700;
+}
+
 .file-picker input {
   width: 100%;
   box-sizing: border-box;
@@ -200,17 +205,51 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 40px;
-  height: 56px;
+  min-height: 96px;
   background: rgba(243, 237, 225, 0.92);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
 }
 
 .site-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.site-logo {
+  width: auto;
+  height: 72px;
+  max-width: 220px;
+  flex: 0 0 auto;
+  object-fit: contain;
+}
+
+.site-brand-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.site-brand-en {
   font-weight: 700;
-  font-size: 0.9rem;
-  letter-spacing: 0.04em;
+  font-size: 0.86rem;
+  letter-spacing: 0.02em;
   color: var(--heading);
+  line-height: 1.15;
+}
+
+.site-brand-ta {
+  font-size: 0.77rem;
+  color: var(--muted);
+  line-height: 1.15;
+}
+
+.site-brand-si {
+  font-size: 0.77rem;
+  color: var(--muted);
+  line-height: 1.15;
 }
 
 .site-nav-links {
@@ -241,12 +280,59 @@
 @media (max-width: 980px) {
   .site-nav {
     padding: 0 20px;
+    min-height: 100px;
+  }
+
+  .site-logo {
+    width: auto;
+    height: 52px;
+    max-width: 160px;
+  }
+
+  .site-brand-en {
+    font-size: 0.78rem;
+  }
+
+  .site-brand-ta {
+    font-size: 0.7rem;
+  }
+
+  .site-brand-si {
+    font-size: 0.7rem;
+  }
+
+  .site-nav-links {
+    gap: 2px;
+  }
+
+  .nav-link {
+    padding: 6px 12px;
   }
 }
 
 /* ── Results page hero ───────────────────────────────────── */
 .results-hero h1 {
   font-size: 1.7rem;
+  color: #93003C;
+}
+
+.results-hero {
+  border: 1px solid rgba(147, 0, 60, 0.2);
+  background:
+    radial-gradient(circle at top left, rgba(147, 0, 60, 0.14), transparent 35%),
+    radial-gradient(circle at right, rgba(147, 0, 60, 0.08), transparent 32%),
+    linear-gradient(150deg, rgba(255, 250, 252, 0.96), rgba(255, 241, 247, 0.94));
+}
+
+.results-hero .eyebrow {
+  color: #93003C;
+  font-weight: 700;
+}
+
+.results-hero .hero-copy {
+  color: #5a2339;
+  font-size: 1.02rem;
+  max-width: 900px;
 }
 
 .uploads-hero h1 {
@@ -258,10 +344,21 @@
 }
 
 .grade-legend {
-  margin: 12px 0 0;
-  font-size: 0.82rem;
-  color: var(--muted);
-  letter-spacing: 0.02em;
+  margin: 18px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.grade-legend-chip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(147, 0, 60, 0.26);
+  background: rgba(147, 0, 60, 0.08);
+  color: #4f1f33;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .exam-selector-bar {
@@ -564,6 +661,40 @@
   gap: 14px;
 }
 
+.island-ranks-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.island-ranks-button {
+  padding: 10px 18px;
+  font-size: 0.84rem;
+}
+
+.island-ranks-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.island-ranks-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.island-ranks-card ol {
+  margin: 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+
+.rank-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
 .filter-row {
   display: flex;
   flex-wrap: wrap;
@@ -709,6 +840,7 @@
 @media (max-width: 980px) {
   .filter-bar { padding: 16px 20px; }
   .filter-meta { margin-left: 0; }
+  .island-ranks-toolbar { justify-content: flex-start; }
 
   .exam-selector-bar {
     padding: 16px 20px;
@@ -716,5 +848,14 @@
 
   .exam-search-button {
     margin-left: 0;
+  }
+
+  .grade-legend {
+    gap: 8px;
+  }
+
+  .grade-legend-chip {
+    font-size: 0.72rem;
+    padding: 7px 10px;
   }
 }
