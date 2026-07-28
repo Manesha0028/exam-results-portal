@@ -365,6 +365,10 @@
     linear-gradient(150deg, rgba(255, 250, 252, 0.96), rgba(255, 241, 247, 0.94));
 }
 
+.student-result-hero h1 {
+  font-size: 1.7rem;
+}
+
 .grade-legend {
   margin: 18px 0 0;
   display: flex;
@@ -496,6 +500,130 @@
 .upload-file-cell small {
   color: var(--muted);
   font-size: 0.72rem;
+}
+
+.student-result-form-card {
+  display: grid;
+  gap: 14px;
+}
+
+.student-result-form {
+  display: grid;
+  gap: 16px;
+}
+
+.filter-input-text {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid var(--accent);
+  background: rgba(255, 251, 245, 0.88);
+  color: var(--heading);
+  font: inherit;
+}
+
+.student-result-submit {
+  justify-self: start;
+}
+
+.student-result-card {
+  display: grid;
+  gap: 18px;
+}
+
+.student-result-header h2 {
+  margin-top: 8px;
+  font-family: var(--display);
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+}
+
+.student-result-meta {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.student-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.student-info-grid div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 253, 249, 0.88);
+  border: 1px solid var(--border-soft);
+}
+
+.student-info-grid span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.student-info-grid strong {
+  color: var(--heading);
+  font-size: 1rem;
+}
+
+.student-subject-list {
+  display: grid;
+  gap: 10px;
+}
+
+.student-subject-list-head,
+.student-subject-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.student-subject-list-head {
+  padding: 0 6px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+}
+
+.student-subject-row {
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 253, 249, 0.88);
+  border: 1px solid var(--border-soft);
+}
+
+.student-grade-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(14, 124, 102, 0.12);
+  color: #0f5f4f;
+  font-weight: 700;
+}
+
+.student-grade-empty {
+  background: rgba(93, 111, 108, 0.12);
+  color: var(--muted);
+}
+
+@media (max-width: 980px) {
+  .student-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .student-subject-list-head,
+  .student-subject-row {
+    grid-template-columns: 100px minmax(0, 1fr);
+  }
 }
 
 .upload-actions {

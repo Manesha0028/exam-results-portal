@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '')
+const COOPERATIVE_DEVELOPMENT_EXAM_NAME = 'Certificate Course in Co-operative Development'
 const QUARTERLY_ACCOUNTING_EXAM_NAME = 'Certificate Course of the Quarterly Accounting principals'
 
 const SUBJECTS = [
@@ -14,6 +15,15 @@ const SUBJECTS = [
   { name: 'Law & Practices',           code: 'CDAL08' },
   { name: 'Human resource Management', code: 'CDAL09' },
   { name: 'Field Assignment',          code: 'CDAL10' },
+]
+
+const COOPERATIVE_DEVELOPMENT_SUBJECTS = [
+  { name: 'Co-operative & Business Environment CDOL01', code: 'CDOL01' },
+  { name: 'Management CDOL02', code: 'CDOL02' },
+  { name: 'Accounting & Co-operative Accounting Procedures CDOL03', code: 'CDOL03' },
+  { name: 'Legal Environment & Co-operative Law CDOL04', code: 'CDOL04' },
+  { name: 'Office Management CDOL05', code: 'CDOL05' },
+  { name: 'Marketing & Co-operative Marketing CDOL06', code: 'CDOL06' },
 ]
 
 const STATUS_CHIPS = [
@@ -52,6 +62,25 @@ function getQuarterlyPaperMarks(candidate) {
     first: firstPaper?.mark || '',
     second: secondPaper?.mark || '',
   }
+}
+
+function getCooperativeDevelopmentSubjectCells(candidate) {
+  const subjects = candidate.subjects || []
+  const subjectMap = {}
+
+  subjects.forEach((subject) => {
+    subjectMap[subject.code] = subject
+  })
+
+  return COOPERATIVE_DEVELOPMENT_SUBJECTS.map((subject) => {
+    const current = subjectMap[subject.code]
+    return {
+      code: subject.code,
+      name: subject.name,
+      mark: current?.mark || '',
+      grade: current?.grade || '',
+    }
+  })
 }
 
 function classifyCandidate(candidate) {
@@ -305,6 +334,8 @@ export default function ResultsPage() {
   }
 
   const isDirty = search || status !== 'all' || center || finalGrade || minTotal !== '' || maxTotal !== ''
+  const isCooperativeDevelopmentExam =
+    normalizeExamName(appliedExamName) === normalizeExamName(COOPERATIVE_DEVELOPMENT_EXAM_NAME)
   const isQuarterlyAccountingExam =
     normalizeExamName(appliedExamName) === normalizeExamName(QUARTERLY_ACCOUNTING_EXAM_NAME)
 
@@ -556,7 +587,65 @@ export default function ResultsPage() {
           </div>
         )}
 
-        {!loading && filtered.length > 0 && !isQuarterlyAccountingExam && (
+        {!loading && filtered.length > 0 && isCooperativeDevelopmentExam && (
+          <div className="results-scroll">
+            <table className="results-table">
+              <thead>
+                <tr className="rt-head-top">
+                  <th rowSpan={2} className="rt-no">No</th>
+                  <th rowSpan={2} className="rt-name">Candidate&apos;s Name</th>
+                  <th rowSpan={2} className="rt-nic">NIC Number</th>
+                  <th rowSpan={2} className="rt-index">Index No</th>
+                  {COOPERATIVE_DEVELOPMENT_SUBJECTS.map((subject) => (
+                    <th key={subject.code} colSpan={2} className="rt-subject-name">
+                      <span className="rt-subject-title">{subject.name}</span>
+                    </th>
+                  ))}
+                  <th rowSpan={2} className="rt-trailing">Total</th>
+                  <th rowSpan={2} className="rt-trailing">Average</th>
+                  <th rowSpan={2} className="rt-trailing">Final Grade</th>
+                  <th rowSpan={2} className="rt-trailing rt-repeat">Repeat Subject Code</th>
+                  <th rowSpan={2} className="rt-trailing">Place</th>
+                </tr>
+                <tr className="rt-head-code">
+                  {COOPERATIVE_DEVELOPMENT_SUBJECTS.map((subject) => (
+                    <>
+                      <th key={`${subject.code}-mark`} className="rt-sub-col">Mark</th>
+                      <th key={`${subject.code}-grade`} className="rt-sub-col rt-grade-col">Grade</th>
+                    </>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((candidate, idx) => {
+                  const subjectCells = getCooperativeDevelopmentSubjectCells(candidate)
+
+                  return (
+                    <tr key={candidate.indexNo || idx} className={idx % 2 === 0 ? 'rt-even' : 'rt-odd'}>
+                      <td className="rt-no rt-center-cell">{idx + 1}</td>
+                      <td className="rt-name">{candidate.candidateName || ''}</td>
+                      <td className="rt-nic">{candidate.nicNumber || ''}</td>
+                      <td className="rt-index">{candidate.indexNo || ''}</td>
+                      {subjectCells.map((subject) => (
+                        <>
+                          <td key={`${subject.code}-m`} className="rt-mark">{subject.mark || '-'}</td>
+                          <td key={`${subject.code}-g`} className={`rt-grade ${gradeClass(subject.grade || '')}`}>{subject.grade || '-'}</td>
+                        </>
+                      ))}
+                      <td className="rt-trailing rt-center-cell">{candidate.total ?? ''}</td>
+                      <td className="rt-trailing rt-center-cell">{candidate.average || ''}</td>
+                      <td className="rt-trailing rt-center-cell">{candidate.finalGrade || ''}</td>
+                      <td className="rt-trailing rt-repeat">{candidate.repeatSubjectCode || ''}</td>
+                      <td className="rt-trailing rt-center-cell">{candidate.place || ''}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!loading && filtered.length > 0 && !isQuarterlyAccountingExam && !isCooperativeDevelopmentExam && (
           <div className="results-scroll">
             <table className="results-table">
               <thead>
