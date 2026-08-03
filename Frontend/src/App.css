@@ -365,8 +365,18 @@
     linear-gradient(150deg, rgba(255, 250, 252, 0.96), rgba(255, 241, 247, 0.94));
 }
 
-.student-result-hero h1 {
-  font-size: 1.7rem;
+.student-result-heading-wrap {
+  padding: 2px 4px 0;
+  text-align: center;
+}
+
+.student-result-heading {
+  margin: 0;
+  color: #111;
+  font-size: clamp(1.4rem, 2.9vw, 2rem);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  text-transform: uppercase;
 }
 
 .grade-legend {
@@ -505,11 +515,20 @@
 .student-result-form-card {
   display: grid;
   gap: 14px;
+  width: min(100%, 980px);
+  margin-inline: auto;
 }
 
 .student-result-form {
   display: grid;
   gap: 16px;
+}
+
+.student-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
 }
 
 .filter-input-text {
@@ -525,104 +544,131 @@
 
 .student-result-submit {
   justify-self: start;
+  background: #6484ea;
+}
+
+.student-result-submit:hover:not(:disabled) {
+  box-shadow: 0 14px 28px rgba(100, 132, 234, 0.32);
+}
+
+.student-result-reset {
+  background: #ee624f;
+}
+
+.student-result-reset:hover:not(:disabled) {
+  box-shadow: 0 14px 28px rgba(238, 98, 79, 0.32);
 }
 
 .student-result-card {
   display: grid;
-  gap: 18px;
+  gap: 14px;
+  width: min(100%, 980px);
+  margin-inline: auto;
 }
 
-.student-result-header h2 {
-  margin-top: 8px;
-  font-family: var(--display);
-  font-size: clamp(1.5rem, 3vw, 2.2rem);
-}
-
-.student-result-meta {
-  margin-top: 6px;
-  color: var(--muted);
-}
-
-.student-info-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.student-info-grid div {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  border-radius: 18px;
-  background: rgba(255, 253, 249, 0.88);
-  border: 1px solid var(--border-soft);
-}
-
-.student-info-grid span {
-  color: var(--muted);
-  font-size: 0.8rem;
-  text-transform: uppercase;
+.student-report-topline {
+  margin: 0;
+  text-align: center;
+  font-size: 0.76rem;
   letter-spacing: 0.06em;
-}
-
-.student-info-grid strong {
-  color: var(--heading);
-  font-size: 1rem;
-}
-
-.student-subject-list {
-  display: grid;
-  gap: 10px;
-}
-
-.student-subject-list-head,
-.student-subject-row {
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
-}
-
-.student-subject-list-head {
-  padding: 0 6px;
-  color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.75rem;
+  color: #3b4a47;
 }
 
-.student-subject-row {
+.student-report-logo {
+  width: min(140px, 40vw);
+  height: auto;
+  justify-self: center;
+}
+
+.student-report-org-copy {
+  display: grid;
+  gap: 2px;
+  text-align: center;
+}
+
+.student-report-org-copy p {
+  margin: 0;
+  color: #24312f;
+  line-height: 1.2;
+}
+
+.student-report-exam-title {
+  margin: 6px 0 2px;
+  text-align: center;
+  font-family: var(--display);
+  font-size: clamp(1.2rem, 2.3vw, 1.75rem);
+  color: #14221f;
+}
+
+.student-report-meta {
+  display: grid;
+  gap: 5px;
   padding: 12px 14px;
-  border-radius: 16px;
-  background: rgba(255, 253, 249, 0.88);
+  border-radius: 14px;
   border: 1px solid var(--border-soft);
+  background: rgba(255, 253, 249, 0.9);
 }
 
-.student-grade-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 96px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgba(14, 124, 102, 0.12);
-  color: #0f5f4f;
+.student-report-meta p {
+  margin: 0;
+  color: #273937;
+}
+
+.student-island-rank {
+  color: #1a5c9a !important;
   font-weight: 700;
 }
 
-.student-grade-empty {
-  background: rgba(93, 111, 108, 0.12);
-  color: var(--muted);
+.student-result-table-wrap {
+  overflow-x: auto;
+}
+
+.student-result-table {
+  width: 100%;
+  min-width: 420px;
+  border-collapse: collapse;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.student-result-table th,
+.student-result-table td {
+  border: 1px solid var(--border-soft);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.student-result-table th {
+  background: rgba(15, 107, 97, 0.14);
+  color: #113532;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.student-result-table tbody tr:nth-child(even) {
+  background: rgba(250, 247, 241, 0.7);
+}
+
+.student-result-download {
+  justify-self: end;
+  align-self: end;
+  margin-left: auto;
+  margin-right: 0;
+  margin-top: 2px;
 }
 
 @media (max-width: 980px) {
-  .student-info-grid {
-    grid-template-columns: 1fr;
+  .student-result-heading {
+    font-size: 1.2rem;
   }
 
-  .student-subject-list-head,
-  .student-subject-row {
-    grid-template-columns: 100px minmax(0, 1fr);
+  .student-report-topline {
+    font-size: 0.68rem;
+  }
+
+  .student-result-table {
+    min-width: 320px;
   }
 }
 

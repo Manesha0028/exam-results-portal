@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '')
-const QUARTERLY_ACCOUNTING_EXAM_NAME = 'Certificate Course of the Quarterly Accounting principals'
 
 function normalizeExamName(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase()
@@ -11,12 +10,83 @@ function getSubjectGrade(subject) {
   return (subject?.grade || '').trim() || '-'
 }
 
-function getQuarterlySubjectMark(subject) {
-  return (subject?.mark || '').trim() || '-'
+function islandPlaceLabel(place) {
+  if (place === 1) return 'First place'
+  if (place === 2) return 'Second place'
+  if (place === 3) return 'Third place'
+  return `${place}th place`
 }
 
-function isQuarterlyAccountingExam(examName) {
-  return normalizeExamName(examName) === normalizeExamName(QUARTERLY_ACCOUNTING_EXAM_NAME)
+function finalGradeRankWeight(finalGradeValue) {
+  const grade = String(finalGradeValue || '').trim().toUpperCase()
+  if (grade === 'D') return 4
+  if (grade === 'C') return 3
+  if (grade === 'S') return 2
+  if (grade === 'F') return 1
+  return 0
+}
+
+function isEligibleForIslandRank(candidate) {
+  const finalGrade = String(candidate.finalGrade || '').trim().toUpperCase()
+  const hasRepeat = String(candidate.repeatSubjectCode || '').trim() !== ''
+  const hasNotCompleted =
+    finalGrade.includes('NOT') ||
+    finalGrade.includes('COMPLETE') ||
+    finalGrade.includes('INCOMPLETE') ||
+    finalGrade.includes('NC')
+
+  if (!Number.isFinite(Number(candidate.total))) return false
+  if (!finalGrade) return false
+  if (finalGrade === 'AB' || finalGrade === 'F' || finalGrade.includes('FAIL')) return false
+  if (hasNotCompleted) return false
+  if (hasRepeat) return false
+
+  const subjectGrades = (candidate.subjects || [])
+    .map((subject) => String(subject.grade || '').trim().toUpperCase())
+    .filter(Boolean)
+
+  return !subjectGrades.some((grade) => {
+    if (grade === 'S' || grade === 'AB' || grade === 'F') return true
+    if (grade.includes('FAIL') || grade.includes('NOT') || grade.includes('COMPLETE') || grade.includes('INCOMPLETE')) return true
+    return false
+  })
+}
+
+function getCandidateIslandRankLabel(allResults, targetCandidate) {
+  const sortedEligibleCandidates = allResults
+    .filter((candidate) => isEligibleForIslandRank(candidate))
+    .sort((a, b) => {
+      const totalDifference = Number(b.total) - Number(a.total)
+      if (totalDifference !== 0) return totalDifference
+      const finalGradeDifference =
+        finalGradeRankWeight(b.finalGrade) - finalGradeRankWeight(a.finalGrade)
+      if (finalGradeDifference !== 0) return finalGradeDifference
+      return (a.candidateName || '').localeCompare(b.candidateName || '')
+    })
+
+  const candidateIdentifier = normalizeExamName(targetCandidate.indexNo || targetCandidate.nicNumber || targetCandidate.candidateName || '')
+  let currentPlace = 0
+  let previousRankKey = ''
+
+  for (const candidate of sortedEligibleCandidates) {
+    const rankKey = `${Number(candidate.total)}|${finalGradeRankWeight(candidate.finalGrade)}`
+
+    if (rankKey !== previousRankKey) {
+      currentPlace += 1
+      previousRankKey = rankKey
+    }
+
+    if (currentPlace > 3) {
+      break
+    }
+
+    const currentIdentifier = normalizeExamName(candidate.indexNo || candidate.nicNumber || candidate.candidateName || '')
+    if (currentIdentifier === candidateIdentifier) {
+      return islandPlaceLabel(currentPlace)
+    }
+  }
+
+  return ''
 }
 
 export default function StudentResultPage() {
@@ -29,9 +99,6 @@ export default function StudentResultPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [studentResult, setStudentResult] = useState(null)
-  const showMarksInsteadOfGrades = studentResult
-    ? isQuarterlyAccountingExam(studentResult.examName)
-    : false
 
   useEffect(() => {
     setLoadingExams(true)
@@ -65,6 +132,62 @@ export default function StudentResultPage() {
     setError('')
     setMessage('')
     setStudentResult(null)
+  }
+
+  function handleResetForm() {
+    setSelectedExamName('')
+    setSelectedExamYear('')
+    setIndexNumber('')
+    resetResultState()
+  }
+
+  function handleDownloadPdf() {
+    const reportElement = document.getElementById('student-result-card')
+    if (!reportElement) return
+
+    const reportClone = reportElement.cloneNode(true)
+    const downloadButton = reportClone.querySelector('.student-result-download')
+    if (downloadButton) {
+      downloadButton.remove()
+    }
+
+    reportClone.querySelectorAll('img').forEach((image) => {
+      const srcValue = image.getAttribute('src') || ''
+      if (!srcValue) return
+
+      if (srcValue.startsWith('http://') || srcValue.startsWith('https://') || srcValue.startsWith('data:')) {
+        return
+      }
+
+      image.setAttribute('src', new URL(srcValue, window.location.origin).href)
+    })
+
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) return
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Student Result</title>
+          <style>
+            body { font-family: "Trebuchet MS", "Segoe UI", sans-serif; margin: 20px; color: #1d2a28; }
+            .report { max-width: 900px; margin: 0 auto; border: 1px solid #d4dbda; border-radius: 14px; padding: 16px; }
+            .report img { display: block; margin: 8px auto; width: 120px; height: auto; }
+            .report h2, .report p { margin: 4px 0; }
+            .report table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .report th, .report td { border: 1px solid #d4dbda; padding: 8px 10px; text-align: left; }
+            .report th { background: #e8f4f2; }
+            .student-result-download { display: none !important; }
+          </style>
+        </head>
+        <body>
+          <div class="report">${reportClone.innerHTML}</div>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.focus()
+    printWindow.print()
   }
 
   async function handleSubmit(event) {
@@ -102,6 +225,7 @@ export default function StudentResultPage() {
         throw new Error(payload.message || 'Failed to load results.')
       }
 
+      const allResults = Array.isArray(payload.results) ? payload.results : []
       const candidate = Array.isArray(payload.results)
         ? payload.results.find((result) => normalizeExamName(result.indexNo) === normalizeExamName(trimmedIndexNumber))
         : null
@@ -115,8 +239,9 @@ export default function StudentResultPage() {
         examName: selectedExam.name,
         academicYear: selectedExam.academicYear,
         candidate,
+        islandRankLabel: getCandidateIslandRankLabel(allResults, candidate),
       })
-      setMessage('Result found successfully.')
+      setMessage('Check below')
     } catch (submissionError) {
       setError(submissionError.message || 'Failed to load results.')
     } finally {
@@ -126,13 +251,9 @@ export default function StudentResultPage() {
 
   return (
     <main className="app-shell">
-      <section className="hero-panel student-result-hero">
-        <p className="eyebrow">Student Result View</p>
-        <h1>Check Your Result</h1>
-        <p className="hero-copy">
-          Select the exam, select the year, enter your index number, and submit to view only your matched result.
-        </p>
-      </section>
+      <header className="student-result-heading-wrap">
+        <h1 className="student-result-heading">FIND YOUR EXAM RESULTS HERE</h1>
+      </header>
 
       <section className="panel-card student-result-form-card">
         <form className="student-result-form" onSubmit={handleSubmit}>
@@ -187,9 +308,14 @@ export default function StudentResultPage() {
             />
           </label>
 
-          <button className="submit-button student-result-submit" type="submit" disabled={loadingResult || loadingExams}>
-            {loadingResult ? 'Searching...' : 'Submit'}
-          </button>
+          <div className="student-result-actions">
+            <button className="submit-button student-result-submit" type="submit" disabled={loadingResult || loadingExams}>
+              {loadingResult ? 'Searching...' : 'Submit'}
+            </button>
+            <button className="submit-button student-result-reset" type="button" onClick={handleResetForm} disabled={loadingResult}>
+              Reset
+            </button>
+          </div>
         </form>
 
         {error ? <p className="feedback error">{error}</p> : null}
@@ -197,46 +323,51 @@ export default function StudentResultPage() {
       </section>
 
       {studentResult && (
-        <section className="panel-card student-result-card">
-          <div className="student-result-header">
-            <p className="eyebrow">Result</p>
-            <h2>{studentResult.examName}</h2>
-            <p className="student-result-meta">Academic Year: {studentResult.academicYear}</p>
+        <section className="panel-card student-result-card" id="student-result-card">
+          <p className="student-report-topline">Exam Results - Department of Examinations- National Cooperative Council of Sri Lanka</p>
+
+          <img className="student-report-logo" src="/company-logo.png" alt="National Co-Operative Council of Sri Lanka logo" />
+
+          <div className="student-report-org-copy">
+            <p>National Co-Operative Council of Sri Lanka</p>
+            <p>ශ්‍රී ලංකා ජාතික සමුපකාර මණ්ඩලය</p>
+            <p>இலங்கை தேசிய கூட்டுறவு சபை</p>
           </div>
 
-          <div className="student-info-grid">
-            <div>
-              <span>Student Name</span>
-              <strong>{studentResult.candidate.candidateName || '-'}</strong>
-            </div>
-            <div>
-              <span>NIC Number</span>
-              <strong>{studentResult.candidate.nicNumber || '-'}</strong>
-            </div>
-            <div>
-              <span>Index Number</span>
-              <strong>{studentResult.candidate.indexNo || '-'}</strong>
-            </div>
-            <div>
-              <span>Final Grade</span>
-              <strong>{studentResult.candidate.finalGrade || '-'}</strong>
-            </div>
+          <h2 className="student-report-exam-title">{studentResult.examName || '-'}</h2>
+
+          <div className="student-report-meta">
+            {studentResult.islandRankLabel ? <p className="student-island-rank">Island Rank: {studentResult.islandRankLabel}</p> : null}
+            <p>Examination : {studentResult.examName || '-'}</p>
+            <p>Year: {studentResult.academicYear || '-'}</p>
+            <p>Name: {studentResult.candidate.candidateName || '-'}</p>
+            <p>Index number: {studentResult.candidate.indexNo || '-'}</p>
+            <p>NIC Number: {studentResult.candidate.nicNumber || '-'}</p>
+            <p>Final Grade: {studentResult.candidate.finalGrade || '-'}</p>
           </div>
 
-          <div className="student-subject-list">
-            <div className="student-subject-list-head">
-              <span>{showMarksInsteadOfGrades ? 'Mark' : 'Grade'}</span>
-              <span>Subject</span>
-            </div>
-            {(studentResult.candidate.subjects || []).map((subject) => (
-              <div key={subject.code} className="student-subject-row">
-                <strong className={`student-grade-chip ${(showMarksInsteadOfGrades ? getQuarterlySubjectMark(subject) : getSubjectGrade(subject)) === '-' ? 'student-grade-empty' : ''}`}>
-                  {showMarksInsteadOfGrades ? getQuarterlySubjectMark(subject) : getSubjectGrade(subject)}
-                </strong>
-                <span>{subject.name || subject.code}</span>
-              </div>
-            ))}
+          <div className="student-result-table-wrap">
+            <table className="student-result-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Results</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(studentResult.candidate.subjects || []).map((subject, index) => (
+                  <tr key={`${subject.code || subject.name || 'subject'}-${index}`}>
+                    <td>{subject.name || subject.code || '-'}</td>
+                    <td>{getSubjectGrade(subject)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+
+          <button className="submit-button student-result-download" type="button" onClick={handleDownloadPdf}>
+            Download Result Sheet (PDF)
+          </button>
         </section>
       )}
     </main>
