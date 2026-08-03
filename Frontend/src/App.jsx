@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, NavLink } from 'react-router-dom'
+import { Routes, Route, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import './App.css'
 import ResultsPage from './ResultsPage.jsx'
 import UploadsPage from './UploadsPage.jsx'
@@ -18,7 +18,101 @@ const EXAM_NAME_OPTIONS = [
   'Diploma in Secretarials Practices for Co-operative Sector Professionals',
 ]
 
-function Nav() {
+const ADMIN_USERNAME = 'admin'
+const ADMIN_PASSWORD = 'admin123'
+const ADMIN_AUTH_STORAGE_KEY = 'exam-results-admin-auth'
+
+function getInitialAdminAuthState() {
+  try {
+    return window.localStorage.getItem(ADMIN_AUTH_STORAGE_KEY) === 'true'
+  } catch (_error) {
+    return false
+  }
+}
+
+function RequireAdmin({ isAdminAuthenticated, children }) {
+  const location = useLocation()
+
+  if (!isAdminAuthenticated) {
+    return <Navigate to="/admin2535" replace state={{ from: location }} />
+  }
+
+  return children
+}
+
+function AdminLoginPage({ isAdminAuthenticated, onLogin }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+
+  const nextPath = location.state?.from?.pathname || '/admin/upload'
+
+  function handleSubmit(event) {
+    event.preventDefault()
+
+    const loginOk = onLogin(username.trim(), password)
+    if (!loginOk) {
+      setError('Invalid username or password.')
+      return
+    }
+
+    setError('')
+    navigate(nextPath, { replace: true })
+  }
+
+  if (isAdminAuthenticated) {
+    return <Navigate to="/admin/upload" replace />
+  }
+
+  return (
+    <main className="app-shell">
+      <section className="panel-card admin-login-card">
+        <h1>Admin Login</h1>
+        <p className="hero-copy">Sign in to access Upload, Uploaded Sheets, and Results management pages.</p>
+
+        <form className="upload-form upload-form-simple" onSubmit={handleSubmit}>
+          <label className="file-picker" htmlFor="admin-username">
+            <span>Username</span>
+            <input
+              id="admin-username"
+              type="text"
+              value={username}
+              onChange={(event) => {
+                setUsername(event.target.value)
+                setError('')
+              }}
+              placeholder="Enter username"
+              autoComplete="username"
+            />
+          </label>
+
+          <label className="file-picker" htmlFor="admin-password">
+            <span>Password</span>
+            <input
+              id="admin-password"
+              type="password"
+              value={password}
+              onChange={(event) => {
+                setPassword(event.target.value)
+                setError('')
+              }}
+              placeholder="Enter password"
+              autoComplete="current-password"
+            />
+          </label>
+
+          <button className="submit-button" type="submit">Login</button>
+        </form>
+
+        {error ? <p className="feedback error">{error}</p> : null}
+      </section>
+    </main>
+  )
+}
+
+function Nav({ isAdminAuthenticated, onLogout }) {
   return (
     <nav className="site-nav">
       <div className="site-nav-brand">
@@ -30,10 +124,15 @@ function Nav() {
         </div>
       </div>
       <div className="site-nav-links">
-        <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Upload</NavLink>
-        <NavLink to="/uploads" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Uploaded Sheets</NavLink>
-        <NavLink to="/results" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Results</NavLink>
-        <NavLink to="/student-result" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Student Result</NavLink>
+        <NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Student Result</NavLink>
+        {isAdminAuthenticated && (
+          <>
+            <NavLink to="/admin/upload" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Upload</NavLink>
+            <NavLink to="/admin/uploads" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Uploaded Sheets</NavLink>
+            <NavLink to="/admin/results" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Results</NavLink>
+            <button className="nav-link nav-link-button" type="button" onClick={onLogout}>Logout</button>
+          </>
+        )}
       </div>
     </nav>
   )
@@ -314,14 +413,62 @@ function UploadPage() {
 }
 
 function App() {
+  const navigate = useNavigate()
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(getInitialAdminAuthState)
+
+  function handleAdminLogin(username, password) {
+    const isValid = username === ADMIN_USERNAME && password === ADMIN_PASSWORD
+    if (!isValid) {
+      return false
+    }
+
+    setIsAdminAuthenticated(true)
+
+    try {
+      window.localStorage.setItem(ADMIN_AUTH_STORAGE_KEY, 'true')
+    } catch (_error) {
+      // No-op if storage is unavailable.
+    }
+
+    return true
+  }
+
+  function handleAdminLogout() {
+    setIsAdminAuthenticated(false)
+
+    try {
+      window.localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY)
+    } catch (_error) {
+      // No-op if storage is unavailable.
+    }
+
+    navigate('/')
+  }
+
   return (
     <>
-      <Nav />
+      <Nav isAdminAuthenticated={isAdminAuthenticated} onLogout={handleAdminLogout} />
       <Routes>
-        <Route path="/" element={<UploadPage />} />
-        <Route path="/uploads" element={<UploadsPage />} />
-        <Route path="/results" element={<ResultsPage />} />
-        <Route path="/student-result" element={<StudentResultPage />} />
+        <Route path="/" element={<StudentResultPage />} />
+        <Route path="/student-result" element={<Navigate to="/" replace />} />
+        <Route path="/admin2535" element={<AdminLoginPage isAdminAuthenticated={isAdminAuthenticated} onLogin={handleAdminLogin} />} />
+        <Route path="/admin" element={<Navigate to="/admin/upload" replace />} />
+        <Route path="/admin/upload" element={(
+          <RequireAdmin isAdminAuthenticated={isAdminAuthenticated}>
+            <UploadPage />
+          </RequireAdmin>
+        )} />
+        <Route path="/admin/uploads" element={(
+          <RequireAdmin isAdminAuthenticated={isAdminAuthenticated}>
+            <UploadsPage />
+          </RequireAdmin>
+        )} />
+        <Route path="/admin/results" element={(
+          <RequireAdmin isAdminAuthenticated={isAdminAuthenticated}>
+            <ResultsPage />
+          </RequireAdmin>
+        )} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   )

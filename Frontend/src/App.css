@@ -294,6 +294,28 @@
   color: #f6f1e8;
 }
 
+.nav-link-button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-link-button:hover {
+  background: rgba(181, 51, 34, 0.12);
+  color: #8d281c;
+}
+
+.admin-login-card {
+  max-width: 520px;
+  margin: 0 auto;
+  border-color: rgba(15, 107, 97, 0.24);
+}
+
+.admin-login-card h1 {
+  margin: 6px 0 10px;
+  color: #0f6b61;
+}
+
 @media (max-width: 980px) {
   .site-nav {
     padding: 0 20px;
