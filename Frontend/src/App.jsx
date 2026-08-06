@@ -69,7 +69,7 @@ function AdminLoginPage({ isAdminAuthenticated, onLogin }) {
   return (
     <main className="app-shell">
       <section className="panel-card admin-login-card">
-        <h1>Admin Login</h1>
+        <h5>Admin Login</h5>
         <p className="hero-copy">Sign in to access Upload, Uploaded Sheets, and Results management pages.</p>
 
         <form className="upload-form upload-form-simple" onSubmit={handleSubmit}>

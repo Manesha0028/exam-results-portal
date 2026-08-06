@@ -10,6 +10,36 @@ function getSubjectGrade(subject) {
   return (subject?.grade || '').trim() || '-'
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+async function toDataUrlFromPublicAsset(path) {
+  try {
+    const response = await fetch(path)
+    if (!response.ok) {
+      return ''
+    }
+
+    const blob = await response.blob()
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(String(reader.result || ''))
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+
+    return dataUrl
+  } catch (_error) {
+    return ''
+  }
+}
+
 function islandPlaceLabel(place) {
   if (place === 1) return 'First place'
   if (place === 2) return 'Second place'
@@ -141,53 +171,102 @@ export default function StudentResultPage() {
     resetResultState()
   }
 
-  function handleDownloadPdf() {
-    const reportElement = document.getElementById('student-result-card')
-    if (!reportElement) return
-
-    const reportClone = reportElement.cloneNode(true)
-    const downloadButton = reportClone.querySelector('.student-result-download')
-    if (downloadButton) {
-      downloadButton.remove()
-    }
-
-    reportClone.querySelectorAll('img').forEach((image) => {
-      const srcValue = image.getAttribute('src') || ''
-      if (!srcValue) return
-
-      if (srcValue.startsWith('http://') || srcValue.startsWith('https://') || srcValue.startsWith('data:')) {
-        return
-      }
-
-      image.setAttribute('src', new URL(srcValue, window.location.origin).href)
-    })
+  async function handleDownloadPdf() {
+    if (!studentResult?.candidate) return
 
     const printWindow = window.open('', '_blank')
     if (!printWindow) return
 
-    printWindow.document.write(`
+    const logoDataUrl = await toDataUrlFromPublicAsset('/company-logo.png')
+    const logoSrc = logoDataUrl || `${window.location.origin}/company-logo.png`
+    const subjectRows = (studentResult.candidate.subjects || [])
+      .map((subject) => `
+        <tr>
+          <td>${escapeHtml(subject?.name || subject?.code || '-')}</td>
+          <td>${escapeHtml(getSubjectGrade(subject))}</td>
+        </tr>
+      `)
+      .join('')
+
+    const islandRankLine = studentResult.islandRankLabel
+      ? `<p><strong>Island Rank:</strong> ${escapeHtml(studentResult.islandRankLabel)}</p>`
+      : ''
+
+    const html = `
       <html>
         <head>
           <title>Student Result</title>
           <style>
             body { font-family: "Trebuchet MS", "Segoe UI", sans-serif; margin: 20px; color: #1d2a28; }
             .report { max-width: 900px; margin: 0 auto; border: 1px solid #d4dbda; border-radius: 14px; padding: 16px; }
-            .report img { display: block; margin: 8px auto; width: 120px; height: auto; }
-            .report h2, .report p { margin: 4px 0; }
-            .report table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            .report-topline { margin: 0 0 10px; font-size: 13px; text-align: center; }
+            .report-logo { display: block; margin: 8px auto; width: 120px; height: auto; }
+            .report-org { text-align: center; margin-bottom: 10px; }
+            .report-org p { margin: 2px 0; }
+            .report-title { margin: 8px 0 12px; text-align: center; }
+            .report-meta p { margin: 4px 0; }
+            .report table { width: 100%; border-collapse: collapse; margin-top: 12px; }
             .report th, .report td { border: 1px solid #d4dbda; padding: 8px 10px; text-align: left; }
             .report th { background: #e8f4f2; }
-            .student-result-download { display: none !important; }
           </style>
         </head>
         <body>
-          <div class="report">${reportClone.innerHTML}</div>
+          <div class="report">
+            <p class="report-topline">Exam Results - Department of Examinations- National Cooperative Council of Sri Lanka</p>
+            <img class="report-logo" id="print-logo" src="${escapeHtml(logoSrc)}" alt="National Co-Operative Council of Sri Lanka logo" />
+            <div class="report-org">
+              <p>National Co-Operative Council of Sri Lanka</p>
+              <p>ශ්‍රී ලංකා ජාතික සමුපකාර මණ්ඩලය</p>
+              <p>இலங்கை தேசிய கூட்டுறவு சபை</p>
+            </div>
+            <h2 class="report-title">${escapeHtml(studentResult.examName || '-')}</h2>
+            <div class="report-meta">
+              ${islandRankLine}
+              <p><strong>Examination:</strong> ${escapeHtml(studentResult.examName || '-')}</p>
+              <p><strong>Year:</strong> ${escapeHtml(studentResult.academicYear || '-')}</p>
+              <p><strong>Name:</strong> ${escapeHtml(studentResult.candidate.candidateName || '-')}</p>
+              <p><strong>Index number:</strong> ${escapeHtml(studentResult.candidate.indexNo || '-')}</p>
+              <p><strong>NIC Number:</strong> ${escapeHtml(studentResult.candidate.nicNumber || '-')}</p>
+              <p><strong>Final Grade:</strong> ${escapeHtml(studentResult.candidate.finalGrade || '-')}</p>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Results</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${subjectRows}
+              </tbody>
+            </table>
+          </div>
         </body>
       </html>
-    `)
+    `
+
+    printWindow.document.open()
+    printWindow.document.write(html)
     printWindow.document.close()
-    printWindow.focus()
-    printWindow.print()
+
+    const triggerPrint = () => {
+      printWindow.focus()
+      printWindow.print()
+    }
+
+    const logo = printWindow.document.getElementById('print-logo')
+    if (!logo) {
+      triggerPrint()
+      return
+    }
+
+    if (logo.complete) {
+      triggerPrint()
+      return
+    }
+
+    logo.addEventListener('load', triggerPrint, { once: true })
+    logo.addEventListener('error', triggerPrint, { once: true })
   }
 
   async function handleSubmit(event) {
@@ -366,7 +445,7 @@ export default function StudentResultPage() {
           </div>
 
           <button className="submit-button student-result-download" type="button" onClick={handleDownloadPdf}>
-            Download Result Sheet (PDF)
+            Download Result Sheet
           </button>
         </section>
       )}

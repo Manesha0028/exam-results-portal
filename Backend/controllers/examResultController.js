@@ -8,6 +8,7 @@ const ExamUpload = require("../models/ExamUpload");
 const { ExamParseError, parseExamResultsWorkbookForExam } = require("../services/examResultParser");
 
 const UPLOAD_STORAGE_ROOT = path.join(__dirname, "..", "storage", "uploads");
+const COOPERATIVE_DEVELOPMENT_EXAM_NAME = "Certificate Course in Co-operative Development";
 
 function sanitizePathPart(value) {
   return (
@@ -28,6 +29,169 @@ function getUploadFileExtension(fileName) {
   }
 
   return ".xlsx";
+}
+
+function resolveUploadStoredPath(upload) {
+  if (upload?.storedFilePath && path.isAbsolute(upload.storedFilePath)) {
+    return upload.storedFilePath;
+  }
+
+  const relativePath = String(upload?.storedFilePath || "").trim();
+
+  if (relativePath) {
+    return path.join(UPLOAD_STORAGE_ROOT, relativePath);
+  }
+
+  const examYear = upload?.exam?.academicYear;
+  const examName = upload?.exam?.name;
+  const storedFileName = upload?.storedFileName;
+
+  if (!examYear || !examName || !storedFileName) {
+    return "";
+  }
+
+  return path.join(
+    UPLOAD_STORAGE_ROOT,
+    sanitizePathPart(examYear),
+    sanitizePathPart(examName),
+    storedFileName,
+  );
+}
+
+function buildUploadStoredPathFromMetadata(upload) {
+  const examYear = upload?.exam?.academicYear;
+  const examName = upload?.exam?.name;
+  const storedFileName = upload?.storedFileName;
+
+  if (!examYear || !examName || !storedFileName) {
+    return "";
+  }
+
+  return path.join(
+    UPLOAD_STORAGE_ROOT,
+    sanitizePathPart(examYear),
+    sanitizePathPart(examName),
+    storedFileName,
+  );
+}
+
+function isPathWithinRoot(candidatePath, rootPath) {
+  const resolvedCandidate = path.resolve(candidatePath);
+  const resolvedRoot = path.resolve(rootPath);
+
+  return resolvedCandidate === resolvedRoot || resolvedCandidate.startsWith(`${resolvedRoot}${path.sep}`);
+}
+
+function normalizeExamName(value) {
+  return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function isNumericFinalGradeValue(value) {
+  const normalized = String(value || "").trim();
+
+  if (!normalized) {
+    return false;
+  }
+
+  return /^\d+(?:\.\d+)?$/.test(normalized);
+}
+
+async function resolveExistingUploadFilePath(upload) {
+  const resolvedStorageRoot = path.resolve(UPLOAD_STORAGE_ROOT);
+  const primaryPath = resolveUploadStoredPath(upload);
+  const metadataPath = buildUploadStoredPathFromMetadata(upload);
+  const candidatePaths = [primaryPath, metadataPath].filter(Boolean);
+
+  for (const candidatePath of candidatePaths) {
+    if (!isPathWithinRoot(candidatePath, resolvedStorageRoot)) {
+      continue;
+    }
+
+    const resolvedCandidatePath = path.resolve(candidatePath);
+    const exists = await fs
+      .access(resolvedCandidatePath)
+      .then(() => true)
+      .catch(() => false);
+
+    if (exists) {
+      return resolvedCandidatePath;
+    }
+  }
+
+  return "";
+}
+
+async function repairCooperativeDevelopmentUploadIfNeeded(exam, upload) {
+  if (!exam?._id || !upload?._id) {
+    return;
+  }
+
+  const isCooperativeDevelopmentExam =
+    normalizeExamName(exam.name) === normalizeExamName(COOPERATIVE_DEVELOPMENT_EXAM_NAME);
+
+  if (!isCooperativeDevelopmentExam) {
+    return;
+  }
+
+  const numericFinalGradeCount = await ExamResult.countDocuments({
+    upload: upload._id,
+    finalGrade: { $regex: /^\s*\d+(?:\.\d+)?\s*$/ },
+  });
+
+  if (numericFinalGradeCount === 0) {
+    return;
+  }
+
+  const uploadWithExam = upload.exam?.name
+    ? upload
+    : {
+        ...upload,
+        exam: {
+          name: exam.name,
+          academicYear: exam.academicYear,
+        },
+      };
+
+  const uploadFilePath = await resolveExistingUploadFilePath(uploadWithExam);
+
+  if (!uploadFilePath) {
+    return;
+  }
+
+  const workbookBuffer = await fs.readFile(uploadFilePath);
+  const parsedResults = parseExamResultsWorkbookForExam(exam.name, workbookBuffer);
+  const latestByIndexNo = new Map();
+
+  parsedResults.forEach((result) => {
+    latestByIndexNo.set(result.indexNo, result);
+  });
+
+  const uniqueResults = [...latestByIndexNo.values()];
+
+  if (uniqueResults.length === 0) {
+    return;
+  }
+
+  await ExamResult.deleteMany({ upload: upload._id });
+
+  const operations = uniqueResults.map((result) => ({
+    updateOne: {
+      filter: { upload: upload._id, indexNo: result.indexNo },
+      update: { $set: { ...result, exam: exam._id, upload: upload._id } },
+      upsert: true,
+    },
+  }));
+
+  await ExamResult.bulkWrite(operations, { ordered: false });
+  await ExamUpload.updateOne(
+    { _id: upload._id },
+    {
+      $set: {
+        recordsProcessed: uniqueResults.length,
+        duplicatesIgnoredInFile: parsedResults.length - uniqueResults.length,
+      },
+    },
+  );
 }
 
 async function uploadExamResults(req, res, next) {
@@ -144,21 +308,30 @@ async function getExamResults(_req, res, next) {
 
     const examId = (_req.query.examId || "").trim();
     const filter = {};
+    let selectedExam = null;
 
     if (examId) {
       if (!mongoose.Types.ObjectId.isValid(examId)) {
         return res.status(400).json({ message: "Selected exam id is invalid." });
       }
 
+      selectedExam = await Exam.findById(examId).lean();
+
+      if (!selectedExam) {
+        return res.status(404).json({ message: "Selected exam was not found." });
+      }
+
       filter.exam = examId;
     }
 
     const examUpload = examId
-      ? await ExamUpload.findOne({ exam: examId }).sort({ createdAt: -1 }).select("_id").lean()
+      ? await ExamUpload.findOne({ exam: examId }).sort({ createdAt: -1 }).lean()
       : null;
 
     if (examId && examUpload?._id) {
       filter.upload = examUpload._id;
+
+      await repairCooperativeDevelopmentUploadIfNeeded(selectedExam, examUpload);
     } else if (examId) {
       filter.upload = null;
     }
@@ -202,13 +375,21 @@ async function downloadExamUpload(req, res, next) {
       return res.status(400).json({ message: "Selected upload id is invalid." });
     }
 
-    const upload = await ExamUpload.findById(uploadId).lean();
+    const upload = await ExamUpload.findById(uploadId)
+      .populate("exam", "name academicYear")
+      .lean();
 
     if (!upload) {
       return res.status(404).json({ message: "Uploaded file was not found." });
     }
 
-    return res.download(upload.storedFilePath, upload.originalFileName, (error) => {
+    const downloadableFilePath = await resolveExistingUploadFilePath(upload);
+
+    if (!downloadableFilePath) {
+      return res.status(404).json({ message: "Uploaded file is missing from storage." });
+    }
+
+    return res.download(downloadableFilePath, upload.originalFileName, (error) => {
       if (error) {
         next(error);
       }

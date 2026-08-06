@@ -236,6 +236,34 @@ function getMergedCellText(worksheet, cellAddress) {
   return "";
 }
 
+function findColumnLetterByHeader(worksheet, headerText, options = {}) {
+  const {
+    startRow = 1,
+    endRow = 10,
+    startColumnIndex = 0,
+    endColumnIndex = 60,
+  } = options;
+
+  const expected = normalizeCell(headerText).toLowerCase();
+
+  if (!expected) {
+    return "";
+  }
+
+  for (let row = startRow; row <= endRow; row += 1) {
+    for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex += 1) {
+      const columnLetter = XLSX.utils.encode_col(columnIndex);
+      const value = getMergedCellText(worksheet, `${columnLetter}${row}`).toLowerCase();
+
+      if (value === expected) {
+        return columnLetter;
+      }
+    }
+  }
+
+  return "";
+}
+
 function validateAdvancedLevelResultsSheet(buffer) {
   const rows = getWorkbookRows(buffer);
   const columnCount = rows.reduce((maxColumns, row) => Math.max(maxColumns, (row || []).length), 0);
@@ -480,6 +508,24 @@ function parseCooperativeDevelopmentWorkbook(buffer) {
   const results = [];
   const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
   const maxRow = range.e.r + 1;
+  const finalGradeColumn = findColumnLetterByHeader(worksheet, "Final Grade", {
+    startRow: 5,
+    endRow: 8,
+    startColumnIndex: 17,
+    endColumnIndex: 55,
+  }) || "T";
+  const repeatSubjectCodeColumn = findColumnLetterByHeader(worksheet, "Repeat Subject Code", {
+    startRow: 5,
+    endRow: 8,
+    startColumnIndex: 17,
+    endColumnIndex: 55,
+  }) || "AA";
+  const placeColumn = findColumnLetterByHeader(worksheet, "Place", {
+    startRow: 5,
+    endRow: 8,
+    startColumnIndex: 17,
+    endColumnIndex: 55,
+  }) || "AB";
 
   for (let rowNumber = 8; rowNumber <= maxRow; rowNumber += 1) {
     const noValue = getMergedCellText(worksheet, `B${rowNumber}`);
@@ -507,9 +553,9 @@ function parseCooperativeDevelopmentWorkbook(buffer) {
       }),
       total: parseNumericCell(getMergedCellText(worksheet, `R${rowNumber}`)),
       average: getMergedCellText(worksheet, `S${rowNumber}`),
-      finalGrade: normalizeCooperativeDevelopmentFinalGrade(getMergedCellText(worksheet, `T${rowNumber}`)),
-      repeatSubjectCode: getMergedCellText(worksheet, `AA${rowNumber}`),
-      place: getMergedCellText(worksheet, `AB${rowNumber}`),
+      finalGrade: normalizeCooperativeDevelopmentFinalGrade(getMergedCellText(worksheet, `${finalGradeColumn}${rowNumber}`)),
+      repeatSubjectCode: getMergedCellText(worksheet, `${repeatSubjectCodeColumn}${rowNumber}`),
+      place: getMergedCellText(worksheet, `${placeColumn}${rowNumber}`),
     };
 
     validateCandidate(candidate, rowNumber);
