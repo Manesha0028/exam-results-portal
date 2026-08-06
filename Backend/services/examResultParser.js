@@ -2,6 +2,7 @@ const XLSX = require("xlsx");
 
 const CURRENT_FORMAT_EXAM_NAME = "Certificate Course of Co-operative Development Advanced Level";
 const QUARTERLY_ACCOUNTING_EXAM_NAME = "Certificate Course of the Quarterly Accounting principals";
+const DIPLOMA_HRM_EXAM_NAME = "Diploma in Human Resource Management";
 
 const DATA_START_ROW_INDEX = 7;
 const NO_COLUMN_INDEX = 1;
@@ -37,6 +38,51 @@ const COOPERATIVE_DEVELOPMENT_SUBJECTS = [
   { name: "Office Management", code: "CDOL05" },
   { name: "Marketing & Co-operative Marketing", code: "CDOL06" },
 ];
+
+const DHRM_FIXED_HEADERS = [
+  { colLetter: "B", name: "No" },
+  { colLetter: "C", name: "Name of the Candidate" },
+  { colLetter: "D", name: "ID NO" },
+  { colLetter: "E", name: "INDEX NO" },
+  { colLetter: "F", name: "MODULE 01 Mark" },
+  { colLetter: "G", name: "MODULE 01 Grade" },
+  { colLetter: "H", name: "MODULE 02 Mark" },
+  { colLetter: "I", name: "MODULE 02 Grade" },
+  { colLetter: "J", name: "MODULE 03 Mark" },
+  { colLetter: "K", name: "MODULE 03 Grade" },
+  { colLetter: "L", name: "MODULE 04 Mark" },
+  { colLetter: "M", name: "MODULE 04 Grade" },
+  { colLetter: "N", name: "MODULE 05 Mark" },
+  { colLetter: "O", name: "MODULE 05 Grade" },
+  { colLetter: "P", name: "MODULE 06 Mark" },
+  { colLetter: "Q", name: "MODULE 06 Grade" },
+  { colLetter: "R", name: "MODULE 07 Mark" },
+  { colLetter: "S", name: "MODULE 07 Grade" },
+  { colLetter: "T", name: "MODULE 08 Mark" },
+  { colLetter: "U", name: "MODULE 08 Grade" },
+  { colLetter: "V", name: "MODULE 09 Mark" },
+  { colLetter: "W", name: "MODULE 09 Grade" },
+  { colLetter: "X", name: "MODULE 10 Mark" },
+  { colLetter: "Y", name: "MODULE 10 Grade" },
+  { colLetter: "Z", name: "MODULE 11 Mark" },
+  { colLetter: "AA", name: "MODULE 11 Grade" },
+  { colLetter: "AB", name: "MODULE 12 Mark" },
+  { colLetter: "AC", name: "MODULE 12 Grade" },
+  { colLetter: "AD", name: "TOTAL" },
+  { colLetter: "AE", name: "AVERAGE" },
+  { colLetter: "AF", name: "CLASS" },
+  { colLetter: "AG", name: "Place" },
+];
+
+const DHRM_SUBJECTS = Array.from({ length: 12 }, (_value, index) => {
+  const moduleNumber = String(index + 1).padStart(2, "0");
+  return {
+    code: `DHRM${moduleNumber}`,
+    name: `MODULE ${moduleNumber}`,
+    markHeader: `MODULE ${moduleNumber} Mark`,
+    gradeHeader: `MODULE ${moduleNumber} Grade`,
+  };
+});
 
 const COOPERATIVE_DEVELOPMENT_HEADER_CHECKS = [
   { cell: "B6", expected: ["No", "No."] },
@@ -384,6 +430,66 @@ function validateCooperativeDevelopmentSheet(buffer) {
   }
 }
 
+function validateDhrmSheet(buffer) {
+  const worksheet = getWorkbookWorksheet(buffer);
+
+  if (!worksheet) {
+    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
+  }
+
+  const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
+  if (range.e.r + 1 < 7) {
+    throw new ExamParseError("Excel file contains insufficient rows.");
+  }
+
+  let headerRegionText = "";
+  for (let rowNumber = 1; rowNumber <= 7; rowNumber += 1) {
+    for (const header of DHRM_FIXED_HEADERS) {
+      headerRegionText += ` ${getMergedCellText(worksheet, `${header.colLetter}${rowNumber}`)}`;
+    }
+  }
+
+  const normalizedHeaderRegionText = headerRegionText.toLowerCase();
+  if (!normalizedHeaderRegionText.includes("diploma in human resource management")) {
+    throw new ExamParseError("Format Mismatch: Missing required 'Diploma in Human Resource Management' title.");
+  }
+
+  if (!normalizedHeaderRegionText.includes("module 12") && !normalizedHeaderRegionText.includes("dhrm")) {
+    throw new ExamParseError("Format Mismatch: File lacks DHRM 12-Module signature.");
+  }
+
+  const af5 = getMergedCellText(worksheet, "AF5").toUpperCase();
+  const af6 = getMergedCellText(worksheet, "AF6").toUpperCase();
+  const af7 = getMergedCellText(worksheet, "AF7").toUpperCase();
+  const hasClassHeader = [af5, af6, af7].some((value) => value.includes("CLASS"));
+
+  if (!hasClassHeader) {
+    throw new ExamParseError(
+      `Format Mismatch: Expected 'CLASS' header in Column AF (AF5:AF7). Found: AF5='${af5}', AF6='${af6}'.`,
+    );
+  }
+
+  const fValues = [
+    getMergedCellText(worksheet, "F5").toUpperCase(),
+    getMergedCellText(worksheet, "F6").toUpperCase(),
+    getMergedCellText(worksheet, "F7").toUpperCase(),
+  ];
+  const gValues = [
+    getMergedCellText(worksheet, "G5").toUpperCase(),
+    getMergedCellText(worksheet, "G6").toUpperCase(),
+    getMergedCellText(worksheet, "G7").toUpperCase(),
+  ];
+
+  const hasMarkColumn = fValues.includes("M") || fValues.some((value) => value.includes("MODULE 01"));
+  const hasGradeColumn = gValues.includes("G") || gValues.some((value) => value.includes("MODULE 01"));
+
+  if (!hasMarkColumn || !hasGradeColumn) {
+    throw new ExamParseError(
+      "Format Mismatch: Columns F & G do not contain valid 'M' (Mark) and 'G' (Grade) sub-headers.",
+    );
+  }
+}
+
 function isCandidateRow(row, trailingIndexes) {
   return normalizeCell(row[INDEX_NO_COLUMN_INDEX]);
 }
@@ -565,6 +671,65 @@ function parseCooperativeDevelopmentWorkbook(buffer) {
   return results;
 }
 
+function parseDhrmWorkbook(buffer) {
+  validateDhrmSheet(buffer);
+  const worksheet = getWorkbookWorksheet(buffer);
+  const results = [];
+  const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
+  const maxRow = range.e.r + 1;
+  let startRow = -1;
+
+  for (let rowNumber = 5; rowNumber <= 10; rowNumber += 1) {
+    const serialValue = normalizeCell(getMergedCellText(worksheet, `B${rowNumber}`));
+    if (serialValue === "01" || serialValue === "1" || serialValue === "1.0") {
+      startRow = rowNumber;
+      break;
+    }
+  }
+
+  if (startRow === -1) {
+    throw new ExamParseError("Upload Rejected: Could not find candidate row '01' in Column B.");
+  }
+
+  for (let rowNumber = startRow; rowNumber <= maxRow; rowNumber += 1) {
+    const noValue = getMergedCellText(worksheet, `B${rowNumber}`);
+    const nameValue = getMergedCellText(worksheet, `C${rowNumber}`);
+
+    if (!noValue && !nameValue) {
+      break;
+    }
+
+    const rowData = {};
+    for (const header of DHRM_FIXED_HEADERS) {
+      rowData[header.name] = getMergedCellText(worksheet, `${header.colLetter}${rowNumber}`);
+    }
+
+    const subjects = DHRM_SUBJECTS.map((subject) => ({
+      code: subject.code,
+      name: subject.name,
+      mark: normalizeCell(rowData[subject.markHeader]),
+      grade: normalizeCell(rowData[subject.gradeHeader]),
+    }));
+
+    const candidate = {
+      candidateName: normalizeCell(rowData["Name of the Candidate"]),
+      nicNumber: normalizeCell(rowData["ID NO"]),
+      indexNo: normalizeCell(rowData["INDEX NO"]),
+      center: "",
+      subjects,
+      total: parseNumericCell(rowData.TOTAL),
+      average: normalizeCell(rowData.AVERAGE),
+      finalGrade: normalizeCell(rowData.CLASS),
+      repeatSubjectCode: "",
+    };
+
+    validateCandidate(candidate, rowNumber);
+    results.push(candidate);
+  }
+
+  return results;
+}
+
 function normalizeExamName(value) {
   return String(value || "").replace(/\s+/g, " ").trim().toLowerCase();
 }
@@ -578,6 +743,10 @@ function parseExamResultsWorkbookForExam(examName, buffer) {
 
   if (normalizedExamName === normalizeExamName("Certificate Course in Co-operative Development")) {
     return parseCooperativeDevelopmentWorkbook(buffer);
+  }
+
+  if (normalizedExamName === normalizeExamName(DIPLOMA_HRM_EXAM_NAME)) {
+    return parseDhrmWorkbook(buffer);
   }
 
   if (normalizedExamName === normalizeExamName(QUARTERLY_ACCOUNTING_EXAM_NAME)) {
@@ -595,4 +764,5 @@ module.exports = {
   CURRENT_FORMAT_EXAM_NAME,
   COOPERATIVE_DEVELOPMENT_SUBJECTS,
   QUARTERLY_ACCOUNTING_EXAM_NAME,
+  DIPLOMA_HRM_EXAM_NAME,
 };

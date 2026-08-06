@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '')
 const COOPERATIVE_DEVELOPMENT_EXAM_NAME = 'Certificate Course in Co-operative Development'
 const QUARTERLY_ACCOUNTING_EXAM_NAME = 'Certificate Course of the Quarterly Accounting principals'
+const DIPLOMA_HRM_EXAM_NAME = 'Diploma in Human Resource Management'
 
 const SUBJECTS = [
   { name: 'Cooperative',               code: 'CDAL01' },
@@ -49,6 +50,18 @@ function gradeClass(grade) {
 
 function normalizeExamName(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase()
+}
+
+function formatAverageValue(value) {
+  const normalized = String(value ?? '').trim()
+  if (!normalized) return ''
+
+  const numericValue = Number(normalized)
+  if (!Number.isFinite(numericValue)) {
+    return normalized
+  }
+
+  return String(Math.round(numericValue))
 }
 
 function getQuarterlyPaperMarks(candidate) {
@@ -338,6 +351,25 @@ export default function ResultsPage() {
     normalizeExamName(appliedExamName) === normalizeExamName(COOPERATIVE_DEVELOPMENT_EXAM_NAME)
   const isQuarterlyAccountingExam =
     normalizeExamName(appliedExamName) === normalizeExamName(QUARTERLY_ACCOUNTING_EXAM_NAME)
+  const isDhrmExam =
+    normalizeExamName(appliedExamName) === normalizeExamName(DIPLOMA_HRM_EXAM_NAME)
+  const dynamicSubjectColumns = useMemo(() => {
+    const resultWithSubjects = filtered.find((candidate) => Array.isArray(candidate.subjects) && candidate.subjects.length > 0)
+      || searchedResults.find((candidate) => Array.isArray(candidate.subjects) && candidate.subjects.length > 0)
+
+    if (!resultWithSubjects) {
+      return SUBJECTS
+    }
+
+    return resultWithSubjects.subjects.map((subject, index) => {
+      const code = (subject.code || '').trim()
+      const name = (subject.name || '').trim()
+      return {
+        code: code || `SUB${String(index + 1).padStart(2, '0')}`,
+        name: name || code || `Subject ${index + 1}`,
+      }
+    })
+  }, [filtered, searchedResults])
 
   return (
     <main className="app-shell">
@@ -616,7 +648,7 @@ export default function ResultsPage() {
                         </>
                       ))}
                       <td className="rt-trailing rt-center-cell">{candidate.total ?? ''}</td>
-                      <td className="rt-trailing rt-center-cell">{candidate.average || ''}</td>
+                      <td className="rt-trailing rt-center-cell">{formatAverageValue(candidate.average)}</td>
                       <td className="rt-trailing rt-center-cell">{candidate.finalGrade || ''}</td>
                       <td className="rt-trailing rt-repeat">{candidate.repeatSubjectCode || ''}</td>
                       <td className="rt-trailing rt-center-cell">{candidate.place || ''}</td>
@@ -638,10 +670,10 @@ export default function ResultsPage() {
                   <th rowSpan={2} className="rt-nic">NIC Number</th>
                   <th rowSpan={2} className="rt-index">Index No.</th>
                   <th rowSpan={2} className="rt-center">Center</th>
-                  {SUBJECTS.map((s) => (
+                  {dynamicSubjectColumns.map((s) => (
                     <th key={s.code} colSpan={2} className="rt-subject-name">
                       <span className="rt-subject-title">{s.name}</span>
-                      <span className="rt-subject-code">{s.code}</span>
+                      {!isDhrmExam && <span className="rt-subject-code">{s.code}</span>}
                     </th>
                   ))}
                   <th rowSpan={2} className="rt-trailing">Total</th>
@@ -650,7 +682,7 @@ export default function ResultsPage() {
                   <th rowSpan={2} className="rt-trailing rt-repeat">Repeat Subject Code</th>
                 </tr>
                 <tr className="rt-head-code">
-                  {SUBJECTS.map((s) => (
+                  {dynamicSubjectColumns.map((s) => (
                     <>
                       <th key={`${s.code}-mark`} className="rt-sub-col">Mark</th>
                       <th key={`${s.code}-grade`} className="rt-sub-col rt-grade-col">Grade</th>
@@ -669,7 +701,7 @@ export default function ResultsPage() {
                       <td className="rt-nic">{candidate.nicNumber || ''}</td>
                       <td className="rt-index">{candidate.indexNo || ''}</td>
                       <td className="rt-center-col">{candidate.center || ''}</td>
-                      {SUBJECTS.map((s) => {
+                      {dynamicSubjectColumns.map((s) => {
                         const sub   = subjectMap[s.code]
                         const mark  = sub?.mark  || '-'
                         const grade = sub?.grade || '-'
@@ -681,7 +713,7 @@ export default function ResultsPage() {
                         )
                       })}
                       <td className="rt-trailing rt-center-cell">{candidate.total ?? ''}</td>
-                      <td className="rt-trailing rt-center-cell">{candidate.average || ''}</td>
+                      <td className="rt-trailing rt-center-cell">{formatAverageValue(candidate.average)}</td>
                       <td className="rt-trailing rt-center-cell">{candidate.finalGrade || ''}</td>
                       <td className="rt-trailing rt-repeat">{candidate.repeatSubjectCode || ''}</td>
                     </tr>
