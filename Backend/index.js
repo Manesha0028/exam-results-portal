@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 const Exam = require("./models/Exam");
 const ExamResult = require("./models/ExamResult");
 const ExamUpload = require("./models/ExamUpload");
+const adminAuthRoutes = require("./routes/adminAuthRoutes");
 const examRoutes = require("./routes/examRoutes");
 const examResultRoutes = require("./routes/examResultRoutes");
 
@@ -117,6 +118,7 @@ async function syncModelIndexes() {
 app.use(cors());
 app.use(express.json());
 
+app.use("/api/admin", adminAuthRoutes);
 app.use("/api/exams", examRoutes);
 app.use("/api/exam-results", examResultRoutes);
 

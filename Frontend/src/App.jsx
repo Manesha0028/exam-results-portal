@@ -18,15 +18,24 @@ const EXAM_NAME_OPTIONS = [
   'Diploma in Secretarials Practices for Co-operative Sector Professionals',
 ]
 
-const ADMIN_USERNAME = 'admin'
-const ADMIN_PASSWORD = 'admin123'
-const ADMIN_AUTH_STORAGE_KEY = 'exam-results-admin-auth'
+function buildAuthHeaders(token, extraHeaders = {}) {
+  if (!token) {
+    return extraHeaders
+  }
 
-function getInitialAdminAuthState() {
-  try {
-    return window.localStorage.getItem(ADMIN_AUTH_STORAGE_KEY) === 'true'
-  } catch (_error) {
-    return false
+  return {
+    ...extraHeaders,
+    Authorization: `Bearer ${token}`,
+  }
+}
+
+function buildPasswordHeaders(token) {
+  if (!token) {
+    return {}
+  }
+
+  return {
+    'x-operation-password': token,
   }
 }
 
@@ -49,10 +58,10 @@ function AdminLoginPage({ isAdminAuthenticated, onLogin }) {
 
   const nextPath = location.state?.from?.pathname || '/admin/upload'
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault()
 
-    const loginOk = onLogin(username.trim(), password)
+    const loginOk = await onLogin(username.trim(), password)
     if (!loginOk) {
       setError('Invalid username or password.')
       return
@@ -138,7 +147,7 @@ function Nav({ isAdminAuthenticated, onLogout }) {
   )
 }
 
-function UploadPage() {
+function UploadPage({ authToken, getOperationPassword, onOperationAuthFailure }) {
   const [exams, setExams] = useState([])
   const [selectedUploadExamName, setSelectedUploadExamName] = useState('')
   const [selectedUploadExamYear, setSelectedUploadExamYear] = useState('')
@@ -198,6 +207,7 @@ function UploadPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...buildAuthHeaders(authToken),
         },
         body: JSON.stringify({
           name: examName.trim(),
@@ -206,6 +216,11 @@ function UploadPage() {
       })
 
       const payload = await response.json().catch(() => ({ message: 'Create exam failed.' }))
+
+      if (response.status === 401) {
+        onOperationAuthFailure()
+        throw new Error(payload.message || 'Admin session expired. Please log in again.')
+      }
 
       if (!response.ok) {
         throw new Error(payload.message || 'Create exam failed.')
@@ -253,6 +268,13 @@ function UploadPage() {
     setErrorMessage('')
     setUploadResult(null)
 
+    const operationPassword = await getOperationPassword()
+    if (!operationPassword) {
+      setIsUploading(false)
+      setErrorMessage('Operation password is required to upload files.')
+      return
+    }
+
     const formData = new FormData()
     formData.append('file', selectedFile)
     formData.append('examId', selectedExam.id)
@@ -260,10 +282,16 @@ function UploadPage() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/exam-results/upload`, {
         method: 'POST',
+        headers: buildPasswordHeaders(operationPassword),
         body: formData,
       })
 
       const payload = await response.json().catch(() => ({ message: 'Upload failed.' }))
+
+      if (response.status === 401) {
+        onOperationAuthFailure()
+        throw new Error(payload.message || 'Operation password expired. Please enter it again.')
+      }
 
       if (!response.ok) {
         throw new Error(payload.message || 'Upload failed.')
@@ -414,35 +442,65 @@ function UploadPage() {
 
 function App() {
   const navigate = useNavigate()
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(getInitialAdminAuthState)
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false)
+  const [adminToken, setAdminToken] = useState('')
+  const [operationPassword, setOperationPassword] = useState('')
 
-  function handleAdminLogin(username, password) {
-    const isValid = username === ADMIN_USERNAME && password === ADMIN_PASSWORD
-    if (!isValid) {
+  async function handleAdminLogin(username, password) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/admin/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      })
+
+      const payload = await response.json().catch(() => ({ message: 'Admin login failed.' }))
+
+      if (!response.ok || !payload.token) {
+        return false
+      }
+
+      setAdminToken(payload.token)
+      setIsAdminAuthenticated(true)
+      return true
+    } catch (_error) {
       return false
     }
+  }
 
-    setIsAdminAuthenticated(true)
-
-    try {
-      window.localStorage.setItem(ADMIN_AUTH_STORAGE_KEY, 'true')
-    } catch (_error) {
-      // No-op if storage is unavailable.
+  async function getOperationPassword() {
+    if (operationPassword) {
+      return operationPassword
     }
 
-    return true
+    const password = window.prompt('Enter the upload/delete/download password')
+    if (!password) {
+      return ''
+    }
+
+    setOperationPassword(password)
+    return password
   }
 
   function handleAdminLogout() {
     setIsAdminAuthenticated(false)
-
-    try {
-      window.localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY)
-    } catch (_error) {
-      // No-op if storage is unavailable.
-    }
+    setAdminToken('')
+    setOperationPassword('')
 
     navigate('/')
+  }
+
+  function handleOperationAuthFailure() {
+    setOperationPassword('')
+  }
+
+  function handleAdminAuthFailure() {
+    setIsAdminAuthenticated(false)
+    setAdminToken('')
+    setOperationPassword('')
+    navigate('/admin2535', { replace: true })
   }
 
   return (
@@ -455,12 +513,20 @@ function App() {
         <Route path="/admin" element={<Navigate to="/admin/upload" replace />} />
         <Route path="/admin/upload" element={(
           <RequireAdmin isAdminAuthenticated={isAdminAuthenticated}>
-            <UploadPage />
+            <UploadPage
+              authToken={adminToken}
+              getOperationPassword={getOperationPassword}
+              onOperationAuthFailure={handleOperationAuthFailure}
+            />
           </RequireAdmin>
         )} />
         <Route path="/admin/uploads" element={(
           <RequireAdmin isAdminAuthenticated={isAdminAuthenticated}>
-            <UploadsPage />
+            <UploadsPage
+              authToken={adminToken}
+              getOperationPassword={getOperationPassword}
+              onOperationAuthFailure={handleOperationAuthFailure}
+            />
           </RequireAdmin>
         )} />
         <Route path="/admin/results" element={(

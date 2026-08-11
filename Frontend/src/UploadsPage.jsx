@@ -19,7 +19,7 @@ function formatFileSize(value) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function UploadsPage() {
+export default function UploadsPage({ authToken, getOperationPassword, onOperationAuthFailure }) {
   const [uploads, setUploads] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,8 +31,19 @@ export default function UploadsPage() {
     setError('')
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/exam-results/uploads`)
+      const response = await fetch(`${API_BASE_URL}/api/exam-results/uploads`, {
+        headers: authToken
+          ? {
+              Authorization: `Bearer ${authToken}`,
+            }
+          : {},
+      })
       const payload = await response.json().catch(() => ({ uploads: [] }))
+
+      if (response.status === 401) {
+        onAuthFailure()
+        throw new Error(payload.message || 'Admin session expired. Please log in again.')
+      }
 
       if (!response.ok) {
         throw new Error(payload.message || 'Failed to load uploaded sheets.')
@@ -62,11 +73,26 @@ export default function UploadsPage() {
     setBusyId(upload._id)
     setActionError('')
 
+    const operationPassword = await getOperationPassword()
+    if (!operationPassword) {
+      setBusyId('')
+      setActionError('Operation password is required to delete uploads.')
+      return
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/exam-results/uploads/${upload._id}`, {
         method: 'DELETE',
+        headers: {
+          'x-operation-password': operationPassword,
+        },
       })
       const payload = await response.json().catch(() => ({ message: 'Delete failed.' }))
+
+      if (response.status === 401) {
+        onOperationAuthFailure()
+        throw new Error(payload.message || 'Invalid operation password. Please enter it again.')
+      }
 
       if (!response.ok) {
         throw new Error(payload.message || 'Delete failed.')
@@ -75,6 +101,51 @@ export default function UploadsPage() {
       await loadUploads()
     } catch (deleteError) {
       setActionError(deleteError.message || 'Delete failed.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  async function handleDownload(upload) {
+    setBusyId(upload._id)
+    setActionError('')
+
+    const operationPassword = await getOperationPassword()
+    if (!operationPassword) {
+      setBusyId('')
+      setActionError('Operation password is required to download uploads.')
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/exam-results/uploads/${upload._id}/download`, {
+        headers: {
+          'x-operation-password': operationPassword,
+        },
+      })
+
+      if (response.status === 401) {
+        onOperationAuthFailure()
+        const payload = await response.json().catch(() => ({ message: 'Download failed.' }))
+        throw new Error(payload.message || 'Invalid operation password. Please enter it again.')
+      }
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ message: 'Download failed.' }))
+        throw new Error(payload.message || 'Download failed.')
+      }
+
+      const fileBlob = await response.blob()
+      const objectUrl = window.URL.createObjectURL(fileBlob)
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = upload.originalFileName || upload.storedFileName || 'upload.xlsx'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(objectUrl)
+    } catch (downloadError) {
+      setActionError(downloadError.message || 'Download failed.')
     } finally {
       setBusyId('')
     }
@@ -134,11 +205,13 @@ export default function UploadsPage() {
                       <div className="upload-actions">
                         <a
                           className="table-action table-action-download"
-                          href={`${API_BASE_URL}/api/exam-results/uploads/${upload._id}/download`}
-                          target="_blank"
-                          rel="noreferrer"
+                          href="#"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            handleDownload(upload)
+                          }}
                         >
-                          Download
+                          {busyId === upload._id ? 'Working...' : 'Download'}
                         </a>
                         <button
                           className="table-action table-action-delete"

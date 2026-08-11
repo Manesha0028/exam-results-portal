@@ -8,6 +8,7 @@ const {
   downloadExamUpload,
   deleteExamUpload,
 } = require("../controllers/examResultController");
+const { requireAdminAuth, requireAdminOperationPassword } = require("../controllers/adminAuthController");
 
 const router = express.Router();
 
@@ -33,10 +34,10 @@ const upload = multer({
   },
 });
 
-router.post("/upload", upload.single("file"), uploadExamResults);
-router.get("/uploads", listExamUploads);
-router.get("/uploads/:uploadId/download", downloadExamUpload);
-router.delete("/uploads/:uploadId", deleteExamUpload);
+router.post("/upload", requireAdminOperationPassword, upload.single("file"), uploadExamResults);
+router.get("/uploads", requireAdminAuth, listExamUploads);
+router.get("/uploads/:uploadId/download", requireAdminOperationPassword, downloadExamUpload);
+router.delete("/uploads/:uploadId", requireAdminOperationPassword, deleteExamUpload);
 router.get("/", getExamResults);
 
 module.exports = router;
