@@ -3,6 +3,8 @@ const XLSX = require("xlsx");
 const CURRENT_FORMAT_EXAM_NAME = "Certificate Course of Co-operative Development Advanced Level";
 const QUARTERLY_ACCOUNTING_EXAM_NAME = "Certificate Course of the Quarterly Accounting principals";
 const DIPLOMA_HRM_EXAM_NAME = "Diploma in Human Resource Management";
+const DIPLOMA_DICT_EXAM_NAME = "Diploma in Information & Communication Technology";
+const DIPLOMA_LEADERSHIP_MANAGEMENT_EXAM_NAME = "Diploma in Leadership & Management";
 
 const DATA_START_ROW_INDEX = 7;
 const NO_COLUMN_INDEX = 1;
@@ -71,7 +73,7 @@ const DHRM_FIXED_HEADERS = [
   { colLetter: "AD", name: "TOTAL" },
   { colLetter: "AE", name: "AVERAGE" },
   { colLetter: "AF", name: "CLASS" },
-  { colLetter: "AG", name: "Place" },
+  { colLetter: "AH", name: "Place" },
 ];
 
 const DHRM_SUBJECTS = Array.from({ length: 12 }, (_value, index) => {
@@ -83,6 +85,79 @@ const DHRM_SUBJECTS = Array.from({ length: 12 }, (_value, index) => {
     gradeHeader: `MODULE ${moduleNumber} Grade`,
   };
 });
+
+const DICT_SUBJECTS = [
+  { code: "DICT01", name: "Paper A" },
+  { code: "DICT02", name: "Paper B" },
+  { code: "DICT03", name: "DICT 1,2,3,4,5" },
+  { code: "DICT04", name: "DICT 06" },
+  { code: "DICT05", name: "DICT 07" },
+  { code: "DICT06", name: "DICT 08" },
+  { code: "DICT07", name: "DICT 09" },
+  { code: "DICT08", name: "DICT 10" },
+];
+
+const DICT_EXCEL_COLUMNS = {
+  no: "B",
+  name: "C",
+  nic: "D",
+  indexNo: "E",
+  subjects: [
+    { code: "DICT01", name: "Paper A", markCol: "N", gradeCol: "O" },
+    { code: "DICT02", name: "Paper B", markCol: "P", gradeCol: "Q" },
+    { code: "DICT03", name: "DICT 1,2,3,4,5", markCol: "R", gradeCol: "S" },
+    { code: "DICT04", name: "DICT 06", markCol: "T", gradeCol: "U" },
+    { code: "DICT05", name: "DICT 07", markCol: "V", gradeCol: "W" },
+    { code: "DICT06", name: "DICT 08", markCol: "X", gradeCol: "Y" },
+    { code: "DICT07", name: "DICT 09", markCol: "Z", gradeCol: "AA" },
+    { code: "DICT08", name: "DICT 10", markCol: "AB", gradeCol: "AC" },
+  ],
+  total: "AD",
+  average: "AE",
+  finalGrade: "AF",
+  place: "AG",
+};
+
+const DICT_SUBJECT_START_COLUMN_INDEX = 13;
+const DICT_TOTAL_COLUMN_INDEX = 29;
+const DICT_AVERAGE_COLUMN_INDEX = 30;
+const DICT_FINAL_GRADE_COLUMN_INDEX = 31;
+const DICT_PLACE_COLUMN_INDEX = 32;
+
+const LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS = {
+  no: "B",
+  candidateName: "C",
+  nicNumber: "D",
+  indexNo: "E",
+  modules: [
+    { code: "MODULE101", name: "MODULE 101", markCol: "F", gradeCol: "G" },
+    { code: "MODULE102", name: "MODULE 102", markCol: "H", gradeCol: "I" },
+    { code: "MODULE103", name: "MODULE 103", markCol: "J", gradeCol: "K" },
+    { code: "MODULE104", name: "MODULE 104", markCol: "L", gradeCol: "M" },
+    { code: "MODULE105", name: "MODULE 105", markCol: "N", gradeCol: "O" },
+    { code: "MODULE106", name: "MODULE 106", markCol: "P", gradeCol: "Q" },
+    { code: "MODULE107", name: "MODULE 107", markCol: "R", gradeCol: "S" },
+    { code: "MODULE108", name: "MODULE 108", markCol: "T", gradeCol: "U" },
+    { code: "MODULE109", name: "MODULE 109", markCol: "V", gradeCol: "W" },
+    { code: "MODULE110", name: "MODULE 110", markCol: "X", gradeCol: "Y" },
+    { code: "MODULE111", name: "MODULE 111", markCol: "Z", gradeCol: "AA" },
+    { code: "MODULE112", name: "MODULE 112", markCol: "AB", gradeCol: "AC" },
+    { code: "MODULE113", name: "MODULE 113", markCol: "AD", gradeCol: "AE" },
+    { code: "MODULE114", name: "MODULE 114", markCol: "AF", gradeCol: "AG" },
+    { code: "MODULE115", name: "MODULE 115", markCol: "AH", gradeCol: "AI" },
+    { code: "MODULE116", name: "MODULE 116", markCol: "AJ", gradeCol: "AK" },
+    { code: "MODULE117", name: "MODULE 117", markCol: "AL", gradeCol: "AM" },
+    { code: "MODULE118", name: "MODULE 118", markCol: "AN", gradeCol: "AO" },
+    { code: "MODULE119", name: "MODULE 119", markCol: "AP", gradeCol: "AQ" },
+    { code: "MODULE120", name: "MODULE 120", markCol: "AR", gradeCol: "AS" },
+    { code: "MODULE121", name: "MODULE 121", markCol: "AT", gradeCol: "AU" },
+    { code: "MODULE122", name: "MODULE 122", markCol: "AV", gradeCol: "AW" },
+  ],
+  total: "AX",
+  average: "AY",
+  finalGrade: "AZ",
+  place: "BA",
+};
 
 const COOPERATIVE_DEVELOPMENT_HEADER_CHECKS = [
   { cell: "B6", expected: ["No", "No."] },
@@ -490,6 +565,83 @@ function validateDhrmSheet(buffer) {
   }
 }
 
+function validateDictSheet(buffer) {
+  const rows = getWorkbookRows(buffer);
+
+  if (!rows || rows.length < 8) {
+    throw new ExamParseError("Excel file contains insufficient rows.");
+  }
+
+  const headerText = rows
+    .slice(0, 7)
+    .flat()
+    .map(normalizeCell)
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (!headerText.includes("diploma in information & communication technology")) {
+    throw new ExamParseError("Format Mismatch: Missing required 'Diploma in Information & Communication Technology' title.");
+  }
+
+  if (!headerText.includes("dict01") && !headerText.includes("dict08") && !headerText.includes("dict")) {
+    throw new ExamParseError("Format Mismatch: File lacks DICT subject signature.");
+  }
+
+  const topRowsText = rows.slice(0, 8).map((row) => (row || []).map(normalizeCell).join(" ").toLowerCase());
+  const candidateHeaderRowText = topRowsText.find(
+    (rowText) => rowText.includes("name") && rowText.includes("index") && rowText.includes("no"),
+  ) || "";
+
+  if (!candidateHeaderRowText) {
+    throw new ExamParseError(
+      "Format Mismatch: Candidate header row is missing required fields (No, Name, Index).",
+    );
+  }
+}
+
+function validateLeadershipManagementSheet(buffer) {
+  const worksheet = getWorkbookWorksheet(buffer);
+
+  if (!worksheet) {
+    throw new ExamParseError("The uploaded workbook does not contain any worksheets.");
+  }
+
+  const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
+  if (range.e.r + 1 < 7) {
+    throw new ExamParseError("Excel file contains insufficient rows.");
+  }
+
+  const headerText = [];
+  for (let rowNumber = 1; rowNumber <= 7; rowNumber += 1) {
+    headerText.push(
+      getMergedCellText(worksheet, `C${rowNumber}`),
+      getMergedCellText(worksheet, `D${rowNumber}`),
+      getMergedCellText(worksheet, `E${rowNumber}`),
+      ...LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.modules.flatMap((module) => [
+        getMergedCellText(worksheet, `${module.markCol}${rowNumber}`),
+        getMergedCellText(worksheet, `${module.gradeCol}${rowNumber}`),
+      ]),
+      getMergedCellText(worksheet, `AX${rowNumber}`),
+      getMergedCellText(worksheet, `AY${rowNumber}`),
+      getMergedCellText(worksheet, `AZ${rowNumber}`),
+      getMergedCellText(worksheet, `BA${rowNumber}`),
+    );
+  }
+
+  const fullHeaderString = headerText.join(" ").toLowerCase();
+  if (!fullHeaderString.includes("diploma in leadership & management")) {
+    throw new ExamParseError("Format Mismatch: Missing required 'Diploma in Leadership & Management' title.");
+  }
+
+  const requiredModuleCodes = ["module 101", "module 102", "module 103", "module 104", "module 105", "module 106", "module 107", "module 108", "module 109", "module 110", "module 111", "module 112", "module 113", "module 114", "module 115", "module 116", "module 117", "module 118", "module 119", "module 120", "module 121", "module 122"];
+  const hasModuleSignature = requiredModuleCodes.some((code) => fullHeaderString.includes(code));
+
+  if (!hasModuleSignature) {
+    throw new ExamParseError("Format Mismatch: File lacks Leadership & Management module signature.");
+  }
+}
+
 function isCandidateRow(row, trailingIndexes) {
   return normalizeCell(row[INDEX_NO_COLUMN_INDEX]);
 }
@@ -721,6 +873,126 @@ function parseDhrmWorkbook(buffer) {
       average: normalizeCell(rowData.AVERAGE),
       finalGrade: normalizeCell(rowData.CLASS),
       repeatSubjectCode: "",
+      place: normalizeCell(rowData.Place),
+    };
+
+    validateCandidate(candidate, rowNumber);
+    results.push(candidate);
+  }
+
+  return results;
+}
+
+function parseDictWorkbook(buffer) {
+  validateDictSheet(buffer);
+  const worksheet = getWorkbookWorksheet(buffer);
+  const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
+  const maxRow = range.e.r + 1;
+
+  if (maxRow < 8) {
+    throw new ExamParseError("The uploaded worksheet is too short for DICT format.");
+  }
+
+  const results = [];
+  let startRow = -1;
+
+  for (let rowNumber = 5; rowNumber <= Math.min(maxRow, 20); rowNumber += 1) {
+    const serialValue = normalizeCell(getMergedCellText(worksheet, `${DICT_EXCEL_COLUMNS.no}${rowNumber}`));
+    if (serialValue === "01" || serialValue === "1" || serialValue === "1.0") {
+      startRow = rowNumber;
+      break;
+    }
+  }
+
+  if (startRow === -1) {
+    throw new ExamParseError("Upload Rejected: Could not find candidate row '01' in Column B.");
+  }
+
+  for (let rowNumber = startRow; rowNumber <= maxRow; rowNumber += 1) {
+    const noValue = getMergedCellText(worksheet, `${DICT_EXCEL_COLUMNS.no}${rowNumber}`);
+    const nameValue = getMergedCellText(worksheet, `${DICT_EXCEL_COLUMNS.name}${rowNumber}`);
+    const indexNoValue = getMergedCellText(worksheet, `${DICT_EXCEL_COLUMNS.indexNo}${rowNumber}`);
+
+    if (!noValue && !nameValue && !indexNoValue) {
+      break;
+    }
+
+    const subjects = DICT_EXCEL_COLUMNS.subjects.map((subject) => {
+      return {
+        code: subject.code,
+        name: subject.name,
+        mark: normalizeCell(getMergedCellText(worksheet, `${subject.markCol}${rowNumber}`)),
+        grade: normalizeCell(getMergedCellText(worksheet, `${subject.gradeCol}${rowNumber}`)),
+      };
+    });
+
+    const candidate = {
+      candidateName: normalizeCell(nameValue),
+      nicNumber: normalizeCell(getMergedCellText(worksheet, `${DICT_EXCEL_COLUMNS.nic}${rowNumber}`)),
+      indexNo: indexNoValue,
+      center: "",
+      subjects,
+      total: parseNumericCell(getMergedCellText(worksheet, `${DICT_EXCEL_COLUMNS.total}${rowNumber}`)),
+      average: normalizeCell(getMergedCellText(worksheet, `${DICT_EXCEL_COLUMNS.average}${rowNumber}`)),
+      finalGrade: normalizeCell(getMergedCellText(worksheet, `${DICT_EXCEL_COLUMNS.finalGrade}${rowNumber}`)),
+      repeatSubjectCode: "",
+      place: normalizeCell(getMergedCellText(worksheet, `${DICT_EXCEL_COLUMNS.place}${rowNumber}`)),
+    };
+
+    validateCandidate(candidate, rowNumber);
+    results.push(candidate);
+  }
+
+  return results;
+}
+
+function parseLeadershipManagementWorkbook(buffer) {
+  validateLeadershipManagementSheet(buffer);
+  const worksheet = getWorkbookWorksheet(buffer);
+  const results = [];
+  const range = XLSX.utils.decode_range(worksheet["!ref"] || "A1:A1");
+  const maxRow = range.e.r + 1;
+  let startRow = -1;
+
+  for (let rowNumber = 5; rowNumber <= Math.min(maxRow, 20); rowNumber += 1) {
+    const serialValue = normalizeCell(getMergedCellText(worksheet, `${LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.no}${rowNumber}`));
+    if (serialValue === "01" || serialValue === "1" || serialValue === "1.0") {
+      startRow = rowNumber;
+      break;
+    }
+  }
+
+  if (startRow === -1) {
+    throw new ExamParseError("Upload Rejected: Could not find candidate row '01' in Column B.");
+  }
+
+  for (let rowNumber = startRow; rowNumber <= maxRow; rowNumber += 1) {
+    const noValue = getMergedCellText(worksheet, `${LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.no}${rowNumber}`);
+    const nameValue = getMergedCellText(worksheet, `${LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.candidateName}${rowNumber}`);
+    const indexNoValue = getMergedCellText(worksheet, `${LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.indexNo}${rowNumber}`);
+
+    if (!noValue && !nameValue && !indexNoValue) {
+      break;
+    }
+
+    const subjects = LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.modules.map((module) => ({
+      code: module.code,
+      name: module.name,
+      mark: normalizeCell(getMergedCellText(worksheet, `${module.markCol}${rowNumber}`)),
+      grade: normalizeCell(getMergedCellText(worksheet, `${module.gradeCol}${rowNumber}`)),
+    }));
+
+    const candidate = {
+      candidateName: normalizeCell(nameValue),
+      nicNumber: normalizeCell(getMergedCellText(worksheet, `${LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.nicNumber}${rowNumber}`)),
+      indexNo: normalizeCell(indexNoValue),
+      center: "",
+      subjects,
+      total: parseNumericCell(getMergedCellText(worksheet, `${LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.total}${rowNumber}`)),
+      average: normalizeCell(getMergedCellText(worksheet, `${LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.average}${rowNumber}`)),
+      finalGrade: normalizeCell(getMergedCellText(worksheet, `${LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.finalGrade}${rowNumber}`)),
+      repeatSubjectCode: "",
+      place: normalizeCell(getMergedCellText(worksheet, `${LEADERSHIP_MANAGEMENT_EXCEL_COLUMNS.place}${rowNumber}`)),
     };
 
     validateCandidate(candidate, rowNumber);
@@ -749,6 +1021,14 @@ function parseExamResultsWorkbookForExam(examName, buffer) {
     return parseDhrmWorkbook(buffer);
   }
 
+  if (normalizedExamName === normalizeExamName(DIPLOMA_DICT_EXAM_NAME)) {
+    return parseDictWorkbook(buffer);
+  }
+
+  if (normalizedExamName === normalizeExamName(DIPLOMA_LEADERSHIP_MANAGEMENT_EXAM_NAME)) {
+    return parseLeadershipManagementWorkbook(buffer);
+  }
+
   if (normalizedExamName === normalizeExamName(QUARTERLY_ACCOUNTING_EXAM_NAME)) {
     return parseQuarterlyAccountingWorkbook(buffer);
   }
@@ -765,4 +1045,6 @@ module.exports = {
   COOPERATIVE_DEVELOPMENT_SUBJECTS,
   QUARTERLY_ACCOUNTING_EXAM_NAME,
   DIPLOMA_HRM_EXAM_NAME,
+  DIPLOMA_DICT_EXAM_NAME,
+  DIPLOMA_LEADERSHIP_MANAGEMENT_EXAM_NAME,
 };
