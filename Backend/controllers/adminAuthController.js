@@ -1,4 +1,4 @@
-const argon2 = require("argon2");
+const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const {
@@ -70,7 +70,7 @@ async function requireAdminOperationPassword(req, res, next) {
       return res.status(401).json({ message: "Operation password is required." });
     }
 
-    const isPasswordValid = await argon2.verify(ADMIN_OPERATION_PASSWORD_HASH, password);
+    const isPasswordValid = await bcrypt.compare(password, ADMIN_OPERATION_PASSWORD_HASH);
 
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid operation password." });
@@ -91,7 +91,7 @@ async function loginAdmin(req, res, next) {
       return res.status(401).json({ message: "Invalid username or password." });
     }
 
-    const isPasswordValid = await argon2.verify(ADMIN_PASSWORD_HASH, password);
+    const isPasswordValid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
 
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid username or password." });
@@ -122,7 +122,7 @@ async function loginAdminOperation(req, res, next) {
       return res.status(401).json({ message: "Invalid username or password." });
     }
 
-    const isPasswordValid = await argon2.verify(ADMIN_OPERATION_PASSWORD_HASH, password);
+    const isPasswordValid = await bcrypt.compare(password, ADMIN_OPERATION_PASSWORD_HASH);
 
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid password." });

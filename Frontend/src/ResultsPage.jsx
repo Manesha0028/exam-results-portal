@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '')
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000'
+    : window.location.origin)
+).replace(/\/$/, '')
 const COOPERATIVE_DEVELOPMENT_EXAM_NAME = 'Certificate Course in Co-operative Development'
 const QUARTERLY_ACCOUNTING_EXAM_NAME = 'Certificate Course of the Quarterly Accounting principals'
 const DIPLOMA_HRM_EXAM_NAME = 'Diploma in Human Resource Management'

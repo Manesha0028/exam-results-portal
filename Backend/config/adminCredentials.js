@@ -1,6 +1,6 @@
 const ADMIN_USERNAME = "NCCAdmin3050";
-const ADMIN_PASSWORD_HASH = "$argon2id$v=19$m=65536,p=4,t=3$p+vLMRBZ2g4Pu+BGeITkxg$r6yn6LgGn9mMeKTFB5eM3W/a+BsRK1cU3JgoCwvcMuU";
-const ADMIN_OPERATION_PASSWORD_HASH = "$argon2id$v=19$m=65536,p=4,t=3$K3GGprZz5K6Zz+fI5cxPfw$sbiuWaioeAiI1EqdVRu/kmSd7fZA0G89T16FdR2bc64";
+const ADMIN_PASSWORD_HASH = "$2a$10$ulsXD.0mx2o.ARs4jN3MDezYA.13tUC9yNr4B3qMu756kiROVcrUK";
+const ADMIN_OPERATION_PASSWORD_HASH = "$2a$10$Xu6NpQRn2EhqLTgjbBAy7.MgOkSsWIzrz73jtIaAcsuAAeaWWRp6C";
 
 module.exports = {
   ADMIN_USERNAME,

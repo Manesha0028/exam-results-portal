@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
+const path = require("path");
 
 const Exam = require("./models/Exam");
 const ExamResult = require("./models/ExamResult");
@@ -10,7 +11,7 @@ const adminAuthRoutes = require("./routes/adminAuthRoutes");
 const examRoutes = require("./routes/examRoutes");
 const examResultRoutes = require("./routes/examResultRoutes");
 
-dotenv.config({ override: true });
+dotenv.config({ path: path.join(__dirname, ".env"), override: true });
 
 const app = express();
 const PORT = process.env.PORT || 5000;

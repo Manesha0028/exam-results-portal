@@ -5,7 +5,12 @@ import ResultsPage from './ResultsPage.jsx'
 import UploadsPage from './UploadsPage.jsx'
 import StudentResultPage from './StudentResultPage.jsx'
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000').replace(/\/$/, '')
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ||
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000'
+    : window.location.origin)
+).replace(/\/$/, '')
 
 const EXAM_NAME_OPTIONS = [
   'Certificate Course of Co-operative Development Advanced Level',

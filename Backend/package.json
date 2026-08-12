@@ -4,11 +4,11 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node Backend/index.js || node backend/index.js || node index.js",
     "dev": "nodemon index.js"
   },
   "dependencies": {
-    "argon2": "^0.45.1",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
